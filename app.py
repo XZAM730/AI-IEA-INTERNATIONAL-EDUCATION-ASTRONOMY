@@ -188,7 +188,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------------- HEADER ----------------
-st.markdown("<div class='header'><h1>AI IEA</h1><div class='sub'>Komunitas IEA — Privat & Terpercaya</div></div>", unsafe_allow_html=True)
+st.markdown("<div class='header'><h1>AI IEA</h1><div class='sub'>Komunitas IEA</div></div>", unsafe_allow_html=True)
 
 # ---------------- LAYOUT ----------------
 col_left, col_right = st.columns([3,1])
@@ -223,9 +223,9 @@ with col_right:
     st.markdown("### ⚙️ Pengaturan")
     st.session_state.font_scale = st.slider("Skala font", 0.85, 1.4, value=st.session_state.font_scale, step=0.05)
     st.markdown("---")
-    st.markdown("### 🗂 Riwayat (lokal)")
+    st.markdown("### Riwayat")
     st.markdown(f"- Pesan disimpan lokal: **{len(st.session_state.chat_history)}**")
-    if st.button("🗂 Export Riwayat (JSON)"):
+    if st.button("Export Riwayat"):
         payload = json.dumps(st.session_state.chat_history, ensure_ascii=False, indent=2)
         b64 = base64.b64encode(payload.encode()).decode()
         href = f'<a href="data:application/json;base64,{b64}" download="ai_iea_history_{int(time.time())}.json">Download Riwayat</a>'
@@ -237,20 +237,20 @@ with col_right:
             if isinstance(imported, list):
                 st.session_state.chat_history = imported + st.session_state.chat_history
                 save_history()
-                st.success("Riwayat berhasil diimport dan digabung.")
+                st.success("Riwayat berhasil diimport")
                 render_chat()
             else:
-                st.error("Format tidak valid (harus list).")
+                st.error("Format tidak valid")
         except Exception as e:
             st.error(f"Gagal import: {e}")
-    if st.button("🧹 Hapus semua riwayat lokal"):
+    if st.button("Hapus semua riwayat"):
         st.session_state.chat_history = []
         save_history()
         st.success("Riwayat dihapus.")
         render_chat()
     st.markdown("---")
-    st.markdown("### ℹ️ Tips")
-    st.markdown("• Gunakan instruksi yang jelas.\n• Jika kirim gambar, jelaskan tujuan analisis.\n• Riwayat disimpan di file JSON lokal pada server.")
+    st.markdown("### Tips")
+    st.markdown("• Gunakan instruksi yang jelas.\n• Jika kirim gambar,jelaskan tujuan analisis")
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------- INPUT FORM (use clear_on_submit to avoid session_state write errors) ----------------
