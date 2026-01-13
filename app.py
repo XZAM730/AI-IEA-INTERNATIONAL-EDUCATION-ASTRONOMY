@@ -7,7 +7,7 @@ try:
     from langchain_groq import ChatGroq
     from langchain_core.messages import SystemMessage, HumanMessage
 except ImportError:
-    st.error("Library missing! Periksa requirements.txt")
+    st.error(" System Failure: Dependencies missing.")
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(
@@ -16,99 +16,106 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS: ULTRA CLEAN & RESPONSIVE UI ---
+# --- CSS: PRO-GRADE UI (Hiding Streamlit Elements) ---
 st.markdown("""
     <style>
-    /* Dasar Tema: Gelap Pekat untuk Kontras Maksimal */
+    /* Menghilangkan Header, Footer, dan Ikon GitHub */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    .viewerBadge_container__1QS1Z {display: none !important;}
+    [data-testid="stHeader"] {background: rgba(0,0,0,0);}
+    
+    /* Background & Core Theme */
     .stApp {
-        background-color: #050505;
+        background: #000000;
         color: #FFFFFF;
     }
 
-    /* Judul Utama: Tanpa Ikon, Terang & Bold */
-    .main-title {
-        font-family: 'Inter', sans-serif;
-        font-size: clamp(2rem, 8vw, 4rem);
-        font-weight: 800;
+    /* Typography: High Contrast & Clean */
+    .hero-text {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: clamp(2.5rem, 10vw, 5rem);
+        font-weight: 900;
         text-align: center;
         color: #00FBFF;
-        text-transform: uppercase;
-        letter-spacing: -2px;
-        margin-top: 50px;
-        line-height: 1;
+        letter-spacing: -3px;
+        margin-top: 5vh;
+        line-height: 0.9;
     }
 
-    .sub-title {
+    .status-badge {
         font-family: monospace;
         text-align: center;
         color: #BC13FE;
-        letter-spacing: 5px;
-        font-size: 0.8rem;
-        margin-bottom: 40px;
+        font-size: 0.7rem;
+        letter-spacing: 4px;
+        margin-bottom: 50px;
+        text-transform: uppercase;
     }
 
-    /* Container Login & Chat agar Nyaman di Semua Gadget */
-    .stTextInput > div > div > input {
-        background-color: #111111 !important;
-        color: white !important;
-        border: 1px solid #333333 !important;
-        border-radius: 10px !important;
-        font-size: 1.1rem !important;
-        padding: 15px !important;
-    }
-
-    /* Menghilangkan Spasi Putih Berlebih di Mobile */
+    /* Container Chat: Optimized for All Screens */
     .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
-        max-width: 900px !important;
+        padding: 1rem 2rem !important;
+        max-width: 1000px !important;
     }
 
-    /* Chat Bubble: Full Width di Mobile */
+    /* Styling Bubble Chat Tanpa Avatar */
     .stChatMessage {
-        background-color: #111111 !important;
-        border: 1px solid #222222 !important;
-        border-radius: 15px !important;
-        padding: 20px !important;
-        margin-bottom: 15px !important;
+        background-color: #0A0A0A !important;
+        border: 1px solid #1A1A1A !important;
+        border-radius: 12px !important;
+        padding: 1.5rem !important;
+        margin-bottom: 1rem !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
-
-    /* Menghilangkan Ikon Avatar Chat agar Text Lebih Luas */
+    
     [data-testid="stChatMessageAvatarUser"], 
     [data-testid="stChatMessageAvatarAssistant"] {
         display: none !important;
     }
 
-    /* Tombol: Kontras Tinggi & Reaktif */
+    /* Input Styling */
+    .stTextInput > div > div > input {
+        background-color: #0F0F0F !important;
+        border: 1px solid #333 !important;
+        border-radius: 8px !important;
+        color: white !important;
+        padding: 12px !important;
+    }
+
+    /* Button Pro */
     .stButton > button {
         width: 100% !important;
         background: #00FBFF !important;
-        color: #000000 !important;
-        font-weight: 700 !important;
+        color: black !important;
+        font-weight: 800 !important;
+        border-radius: 8px !important;
         border: none !important;
-        padding: 15px !important;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        border-radius: 10px !important;
-        transition: 0.3s !important;
+        padding: 1rem !important;
+        transition: 0.4s;
     }
-
     .stButton > button:hover {
         background: #BC13FE !important;
         color: white !important;
-        box-shadow: 0 0 20px rgba(188, 19, 254, 0.4);
+        transform: translateY(-2px);
     }
 
-    /* Status Box / Loading */
-    div[data-testid="stStatusWidget"] {
-        background-color: #000000 !important;
-        border: 1px solid #00FBFF !important;
-        color: #00FBFF !important;
+    /* Loading Animation Bar */
+    @keyframes load {
+        0% { width: 0%; }
+        50% { width: 70%; }
+        100% { width: 100%; }
+    }
+    .loading-bar {
+        height: 2px;
+        background: linear-gradient(90deg, #00FBFF, #BC13FE);
+        animation: load 2s infinite;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- DATABASE & CONFIG ---
+# --- CONFIG & DATABASE ---
 FIREBASE_URL = "https://iea-pendaftaran-default-rtdb.asia-southeast1.firebasedatabase.app"
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
@@ -117,8 +124,7 @@ def check_membership(name):
     grup_list = ["iea_grup_1", "iea_grup_2"]
     try:
         for grup in grup_list:
-            res = requests.get(f"{FIREBASE_URL}/{grup}.json", timeout=10)
-            data = res.json()
+            data = requests.get(f"{FIREBASE_URL}/{grup}.json", timeout=10).json()
             if data:
                 for key in data:
                     if data[key].get('n', '').lower() == name: return True
@@ -129,49 +135,49 @@ def check_membership(name):
 if "auth" not in st.session_state: st.session_state.auth = False
 if "msgs" not in st.session_state: st.session_state.msgs = []
 
-# --- HALAMAN LOGIN ---
+# --- UI: LOGIN ---
 if not st.session_state.auth:
-    st.markdown("<h1 class='main-title'>IEA COSMOS</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='sub-title'>QUANTUM SECURE TERMINAL</p>", unsafe_allow_html=True)
+    st.markdown("<h1 class='hero-text'>COSMOS</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='status-badge'>Encrypted Network Access</p>", unsafe_allow_html=True)
     
-    with st.container():
-        nama = st.text_input("MASUKKAN NAMA LENGKAP", placeholder="Tulis nama anda...")
-        if st.button("BUKA AKSES"):
+    _, mid, _ = st.columns([1, 3, 1])
+    with mid:
+        nama = st.text_input("USER IDENTIFICATION", placeholder="Type your name...")
+        if st.button("LOGIN TO SYSTEM"):
             if nama:
-                with st.status("MENGECEK OTORISASI...", expanded=True) as status:
+                with st.status("Verifying...", expanded=False):
                     if check_membership(nama):
                         st.session_state.auth = True
                         st.session_state.user = nama.upper()
-                        status.update(label="AKSES DIBERIKAN", state="complete")
                         st.rerun()
                     else:
-                        st.error("NAMA TIDAK TERDAFTAR")
+                        st.error("ACCESS DENIED: Not Registered.")
 
-# --- HALAMAN CHAT ---
+# --- UI: CHAT ---
 else:
-    st.markdown(f"<h3 style='color:#00FBFF; margin-bottom:0;'>OPERATOR: {st.session_state.user}</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='color:#666; font-size:0.8rem; margin-bottom:30px;'>Koneksi: Terenkripsi (Llama 3.3 70B)</p>", unsafe_allow_html=True)
+    st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #222; padding-bottom:10px;'><span style='color:#00FBFF; font-weight:bold;'>USER: {st.session_state.user}</span><span style='color:#444; font-size:10px;'>V3.3-QUANTUM</span></div>", unsafe_allow_html=True)
 
-    # Tampilkan Pesan
     for m in st.session_state.msgs:
         with st.chat_message(m["role"]):
-            st.markdown(f"<div style='font-size:1.1rem; line-height:1.6;'>{m['content']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:1.1rem;'>{m['content']}</div>", unsafe_allow_html=True)
 
-    # Input Chat
-    if prompt := st.chat_input("Ketik pertanyaan anda..."):
+    if prompt := st.chat_input("Ask the universe..."):
         st.session_state.msgs.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            with st.status("MENGOLAH DATA SEMESTA...", expanded=False) as status:
+            st.markdown("<div class='loading-bar'></div>", unsafe_allow_html=True)
+            with st.status("Computing...", expanded=False) as status:
                 try:
-                    llm = ChatGroq(temperature=0.7, groq_api_key=GROQ_API_KEY, model_name="llama-3.3-70b-versatile")
-                    sys_msg = f"Kamu adalah IEA AI. User bernama {st.session_state.user}. Jawablah dengan cerdas, jelas, dan profesional dalam bahasa Indonesia."
+                    # Model Paling Canggih: Llama 3.3 70B
+                    llm = ChatGroq(temperature=0.6, groq_api_key=GROQ_API_KEY, model_name="llama-3.3-70b-versatile")
                     
-                    res = llm.invoke([SystemMessage(content=sys_msg), HumanMessage(content=prompt)]).content
-                    status.update(label="DATA DITERIMA", state="complete")
+                    sys_prompt = f"You are COSMOS AI, an expert astronomer. You are talking to {st.session_state.user}. Answer in Bahasa Indonesia. Use sophisticated, accurate, and inspiring language. Format your response with clear spacing."
                     
-                    st.markdown(f"<div style='font-size:1.1rem; line-height:1.6;'>{res}</div>", unsafe_allow_html=True)
+                    res = llm.invoke([SystemMessage(content=sys_prompt), HumanMessage(content=prompt)]).content
+                    status.update(label="Complete", state="complete")
+                    
+                    st.markdown(f"<div style='font-size:1.1rem; line-height:1.7;'>{res}</div>", unsafe_allow_html=True)
                     st.session_state.msgs.append({"role": "assistant", "content": res})
                 except Exception as e:
-                    st.error(f"Koneksi Terputus: {e}")
+                    st.error(f"Signal Lost: {e}")
