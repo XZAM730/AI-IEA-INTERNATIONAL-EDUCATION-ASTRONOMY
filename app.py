@@ -334,15 +334,15 @@ def typewriter_streaming(response_text, container, bubble_class="ai-bubble", spe
 # --- UI: LOGIN INTERFACE ---
 if not st.session_state.auth:
     st.markdown("<div style='height: 12vh;'></div>", unsafe_allow_html=True)
-    st.markdown("<h1 class='hero-title'>IEA ALPHA</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='system-status'>IDENTITY VERIFICATION REQUIRED</p>", unsafe_allow_html=True)
+    st.markdown("<h1 class='hero-title'>IEA</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='system-status'>IDENTITY VERIFICATION ID CARD</p>", unsafe_allow_html=True)
     
     _, col_mid, _ = st.columns([1, 2, 1])
     with col_mid:
         st.markdown("<div class='login-card'>", unsafe_allow_html=True)
-        user_id = st.text_input("SCAN ID CARD (ENTER NAME)", placeholder="Masukkan nama terdaftar...")
+        user_id = st.text_input("NICK ID CARD (ENTER NAME)", placeholder="Masukkan nama terdaftar...")
         
-        if st.button("AUTHORIZE ACCESS"):
+        if st.button("VERIFIKASI"):
             if user_id:
                 # use the nicer verification helper (UX only)
                 verified = verify_identity_with_fanciness(user_id)
@@ -360,7 +360,7 @@ else:
     st.markdown(f"""
         <div style='display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.02); position: relative; z-index: 3;'>
             <div style='color:#bfa7ff; font-weight:900;'>OPERATOR: {st.session_state.user}</div>
-            <div style='color:rgba(255,255,255,0.45); font-size:0.7rem; font-family:monospace;'>MODEL: LLAMA-3.3-70B</div>
+            <div style='color:rgba(255,255,255,0.45); font-size:0.7rem; font-family:monospace;'>AI IEA</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -373,8 +373,8 @@ else:
 
     # Input Form (Tanpa Fitur Gambar)
     with st.form("chat_input", clear_on_submit=True):
-        prompt = st.text_area("Transmit Message", placeholder="Tulis pesan astronomi kamu di sini...", height=100)
-        submit = st.form_submit_button("SEND SIGNAL")
+        prompt = st.text_area("Message", placeholder="Tulis pesan kamu di sini...", height=100)
+        submit = st.form_submit_button("KIRIM")
 
         if submit and prompt.strip():
             # Tambah pesan user
