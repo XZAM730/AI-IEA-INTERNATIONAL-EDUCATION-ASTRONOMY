@@ -1,130 +1,81 @@
 import streamlit as st
 import requests
 import time
+from datetime import datetime
 
-# --- PENGAMAN IMPORT ---
-try:
-    from langchain_groq import ChatGroq
-    from langchain_core.messages import SystemMessage, HumanMessage
-except ImportError:
-    st.error(" System Failure: Dependencies missing.")
+# --- CONFIG ---
+st.set_page_config(page_title="IEA ALPHA TERMINAL", layout="wide", initial_sidebar_state="collapsed")
 
-# --- KONFIGURASI HALAMAN ---
-st.set_page_config(
-    page_title="IEA COSMOS",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-# --- CSS: PRO-GRADE UI (Hiding Streamlit Elements) ---
+# --- CSS: STEALTH & GADGET COMFORT ---
 st.markdown("""
     <style>
-    /* Menghilangkan Header, Footer, dan Ikon GitHub */
+    /* HIDE STREAMLIT BRANDING */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .viewerBadge_container__1QS1Z {display: none !important;}
-    [data-testid="stHeader"] {background: rgba(0,0,0,0);}
     
-    /* Background & Core Theme */
-    .stApp {
-        background: #000000;
-        color: #FFFFFF;
-    }
-
-    /* Typography: High Contrast & Clean */
-    .hero-text {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    /* THEME DARK ALPHA */
+    .stApp { background: #000000; color: #FFFFFF; font-family: 'Inter', sans-serif; }
+    
+    /* HERO TEXT */
+    .hero-title {
         font-size: clamp(2.5rem, 10vw, 5rem);
         font-weight: 900;
         text-align: center;
-        color: #00FBFF;
-        letter-spacing: -3px;
-        margin-top: 5vh;
-        line-height: 0.9;
+        background: linear-gradient(180deg, #FFFFFF 0%, #444 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0px;
     }
 
-    .status-badge {
-        font-family: monospace;
-        text-align: center;
-        color: #BC13FE;
+    /* RANK BADGE */
+    .rank-badge {
+        background: linear-gradient(90deg, #00FBFF, #BC13FE);
+        color: black;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-weight: bold;
         font-size: 0.7rem;
-        letter-spacing: 4px;
-        margin-bottom: 50px;
         text-transform: uppercase;
     }
 
-    /* Container Chat: Optimized for All Screens */
-    .block-container {
-        padding: 1rem 2rem !important;
-        max-width: 1000px !important;
-    }
-
-    /* Styling Bubble Chat Tanpa Avatar */
+    /* CHAT BUBBLES */
     .stChatMessage {
         background-color: #0A0A0A !important;
         border: 1px solid #1A1A1A !important;
-        border-radius: 12px !important;
-        padding: 1.5rem !important;
-        margin-bottom: 1rem !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }
-    
-    [data-testid="stChatMessageAvatarUser"], 
-    [data-testid="stChatMessageAvatarAssistant"] {
-        display: none !important;
+        border-radius: 15px !important;
+        margin-bottom: 10px !important;
     }
 
-    /* Input Styling */
-    .stTextInput > div > div > input {
-        background-color: #0F0F0F !important;
-        border: 1px solid #333 !important;
-        border-radius: 8px !important;
-        color: white !important;
-        padding: 12px !important;
-    }
+    /* FULL WIDTH FOR MOBILE */
+    .block-container { padding: 1rem !important; max-width: 900px !important; }
 
-    /* Button Pro */
-    .stButton > button {
-        width: 100% !important;
-        background: #00FBFF !important;
-        color: black !important;
-        font-weight: 800 !important;
-        border-radius: 8px !important;
-        border: none !important;
-        padding: 1rem !important;
-        transition: 0.4s;
-    }
-    .stButton > button:hover {
-        background: #BC13FE !important;
-        color: white !important;
-        transform: translateY(-2px);
-    }
-
-    /* Loading Animation Bar */
-    @keyframes load {
-        0% { width: 0%; }
-        50% { width: 70%; }
-        100% { width: 100%; }
-    }
-    .loading-bar {
-        height: 2px;
-        background: linear-gradient(90deg, #00FBFF, #BC13FE);
-        animation: load 2s infinite;
+    /* SKYMAP CONTAINER */
+    .skymap-container {
+        border: 1px solid #333;
+        border-radius: 15px;
+        overflow: hidden;
+        margin-top: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- CONFIG & DATABASE ---
+# --- LOGIC & DATABASE ---
 FIREBASE_URL = "https://iea-pendaftaran-default-rtdb.asia-southeast1.firebasedatabase.app"
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+
+def get_rank(msg_count):
+    if msg_count < 10: return "SPACE CADET", "🛰️"
+    elif msg_count < 30: return "GALACTIC VOYAGER", "🚀"
+    else: return "COSMIC COMMANDER", "👑"
 
 def check_membership(name):
     name = name.strip().lower()
     grup_list = ["iea_grup_1", "iea_grup_2"]
     try:
         for grup in grup_list:
-            data = requests.get(f"{FIREBASE_URL}/{grup}.json", timeout=10).json()
+            data = requests.get(f"{FIREBASE_URL}/{grup}.json").json()
             if data:
                 for key in data:
                     if data[key].get('n', '').lower() == name: return True
@@ -137,47 +88,83 @@ if "msgs" not in st.session_state: st.session_state.msgs = []
 
 # --- UI: LOGIN ---
 if not st.session_state.auth:
-    st.markdown("<h1 class='hero-text'>COSMOS</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='status-badge'>Encrypted Network Access</p>", unsafe_allow_html=True)
+    st.markdown("<h1 class='hero-title'>ALPHA</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#666; letter-spacing:10px;'>IEA QUANTUM LINK</p>", unsafe_allow_html=True)
     
-    _, mid, _ = st.columns([1, 3, 1])
-    with mid:
-        nama = st.text_input("USER IDENTIFICATION", placeholder="Type your name...")
-        if st.button("LOGIN TO SYSTEM"):
-            if nama:
-                with st.status("Verifying...", expanded=False):
-                    if check_membership(nama):
-                        st.session_state.auth = True
-                        st.session_state.user = nama.upper()
-                        st.rerun()
-                    else:
-                        st.error("ACCESS DENIED: Not Registered.")
+    _, col, _ = st.columns([1, 2, 1])
+    with col:
+        u_name = st.text_input("IDENTIFICATION", placeholder="Type your name...")
+        if st.button("SYNC TERMINAL"):
+            if u_name and check_membership(u_name):
+                st.session_state.auth = True
+                st.session_state.user = u_name.upper()
+                st.rerun()
+            else:
+                st.error("UNAUTHORIZED ACCESS")
 
-# --- UI: CHAT ---
+# --- UI: MAIN TERMINAL ---
 else:
-    st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #222; padding-bottom:10px;'><span style='color:#00FBFF; font-weight:bold;'>USER: {st.session_state.user}</span><span style='color:#444; font-size:10px;'>V3.3-QUANTUM</span></div>", unsafe_allow_html=True)
+    # Top Bar (Rank & User)
+    rank_title, rank_icon = get_rank(len(st.session_state.msgs))
+    st.markdown(f"""
+        <div style='display:flex; justify-content:space-between; align-items:center;'>
+            <div>
+                <span style='color:#00FBFF; font-weight:900;'>{st.session_state.user}</span>
+                <span style='color:#444; margin-left:10px;'>{rank_icon} {rank_title}</span>
+            </div>
+            <div class='rank-badge'>XP: {len(st.session_state.msgs) * 10}</div>
+        </div>
+        <hr style='border-color:#222;'>
+    """, unsafe_allow_html=True)
 
+    # 1. NASA & SKY MAP (Expandable)
+    col1, col2 = st.columns(2)
+    with col1:
+        with st.expander("🔭 LIVE SKY MAP", expanded=False):
+            st.markdown("""<div class='skymap-container'><iframe src="https://virtualsky.lco.global/embed/index.html?longitude=106.8&latitude=-6.2&projection=gnomic&constellations=true&constellationlabels=true&showstarlabels=true&live=true" width="100%" height="400" frameborder="0" scrolling="no"></iframe></div>""", unsafe_allow_html=True)
+    with col2:
+        with st.expander("📅 2026 CALENDAR", expanded=False):
+            st.write("• Jan 2026: Mars Oposition\n• Aug 2026: Total Solar Eclipse\n• Nov 2026: Leonid Meteor Shower")
+
+    # 2. CHAT AREA
     for m in st.session_state.msgs:
         with st.chat_message(m["role"]):
-            st.markdown(f"<div style='font-size:1.1rem;'>{m['content']}</div>", unsafe_allow_html=True)
+            st.markdown(m["content"])
 
-    if prompt := st.chat_input("Ask the universe..."):
+    # 3. INPUT AREA
+    if prompt := st.chat_input("Ask Cosmos or Command..."):
         st.session_state.msgs.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            st.markdown("<div class='loading-bar'></div>", unsafe_allow_html=True)
-            with st.status("Computing...", expanded=False) as status:
-                try:
-                    # Model Paling Canggih: Llama 3.3 70B
-                    llm = ChatGroq(temperature=0.6, groq_api_key=GROQ_API_KEY, model_name="llama-3.3-70b-versatile")
-                    
-                    sys_prompt = f"You are COSMOS AI, an expert astronomer. You are talking to {st.session_state.user}. Answer in Bahasa Indonesia. Use sophisticated, accurate, and inspiring language. Format your response with clear spacing."
-                    
-                    res = llm.invoke([SystemMessage(content=sys_prompt), HumanMessage(content=prompt)]).content
-                    status.update(label="Complete", state="complete")
-                    
-                    st.markdown(f"<div style='font-size:1.1rem; line-height:1.7;'>{res}</div>", unsafe_allow_html=True)
-                    st.session_state.msgs.append({"role": "assistant", "content": res})
-                except Exception as e:
-                    st.error(f"Signal Lost: {e}")
+            try:
+                from langchain_groq import ChatGroq
+                from langchain_core.messages import SystemMessage, HumanMessage
+                
+                llm = ChatGroq(temperature=0.7, groq_api_key=GROQ_API_KEY, model_name="llama-3.3-70b-versatile")
+                
+                sys_inst = f"You are ALPHA, the IEA Quantum AI. User: {st.session_state.user} (Rank: {rank_title}). Speak in Bahasa Indonesia. Be poetic, brilliant, and scientific."
+                
+                # Fetch Response
+                res = llm.invoke([SystemMessage(content=sys_inst), HumanMessage(content=prompt)]).content
+                st.markdown(res)
+                st.session_state.msgs.append({"role": "assistant", "content": res})
+                
+                # Voice Feature (Text-to-Speech Injection)
+                st.components.v1.html(f"""
+                    <script>
+                    var msg = new SpeechSynthesisUtterance('{res.replace("'", "")}');
+                    msg.lang = 'id-ID';
+                    window.speechSynthesis.speak(msg);
+                    </script>
+                """, height=0)
+
+            except Exception as e:
+                st.error(f"Sync Lost: {e}")
+
+    # Sidebar Logout
+    with st.sidebar:
+        st.title("COMMAND")
+        if st.button("TERMINATE SESSION"):
+            st.session_state.auth = False
+            st.rerun()
