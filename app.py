@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS: STEALTH & HIGH-CONTRAST UI ---
+# --- CSS: STEALTH & HIGH-CONTRAST UI (UPDATED THEME LIKE IMAGE + LOADING) ---
 st.markdown("""
     <style>
     /* HIDE STREAMLIT BRANDING */
@@ -24,41 +24,119 @@ st.markdown("""
     .viewerBadge_container__1QS1Z {display: none !important;}
     [data-testid="stDeployButton"] {display: none !important;}
 
-    /* THEME CORE */
+    /* GLOBAL BACKGROUND (deep navy gradient) */
     .stApp {
-        background: #000000;
-        color: #FFFFFF;
+        background: radial-gradient(circle at 10% 10%, #0b2a3a 0%, #071827 25%, #020617 60%, #000000 100%);
+        color: #E6F7FF;
         font-family: 'Inter', -apple-system, sans-serif;
+        min-height: 100vh;
     }
 
-    /* LOGIN CARD STYLE */
+    /* TOP STATUS (small text like in screenshot) */
+    .top-status {
+        position: absolute;
+        left: 14px;
+        top: 8px;
+        color: rgba(230,247,255,0.65);
+        font-size: 0.8rem;
+        font-family: monospace;
+        letter-spacing: 0.4px;
+    }
+
+    /* SKIP text (top-right) */
+    .skip-text {
+        position: absolute;
+        right: 18px;
+        top: 10px;
+        color: rgba(230,247,255,0.6);
+        font-size: 0.85rem;
+        cursor: pointer;
+    }
+
+    /* LOGIN CARD AREA (centered, glass-like) */
     .login-card {
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(0, 246, 255, 0.2);
-        border-radius: 20px;
-        padding: 40px;
+        margin: 48px auto 24px;
+        max-width: 720px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+        border: 1px solid rgba(255,255,255,0.03);
+        border-radius: 18px;
+        padding: 34px;
         text-align: center;
-        box-shadow: 0 0 50px rgba(0, 246, 255, 0.1);
+        box-shadow: 0 24px 80px rgba(2,6,23,0.7), inset 0 1px 0 rgba(255,255,255,0.02);
+        backdrop-filter: blur(6px);
     }
 
-    /* TYPOGRAPHY */
+    /* ICON BOX like screenshot */
+    .hero-icon {
+        width: 84px;
+        height: 84px;
+        margin: 0 auto 18px;
+        border-radius: 18px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.03);
+    }
+    .hero-icon svg, .hero-icon .emoji {
+        font-size: 38px;
+        color: rgba(255,255,255,0.92);
+        opacity: 0.95;
+    }
+
+    /* HERO TITLE */
     .hero-title {
-        font-size: clamp(2.5rem, 10vw, 5rem);
+        font-size: clamp(2rem, 6vw, 3.6rem);
         font-weight: 900;
-        text-align: center;
-        background: linear-gradient(180deg, #FFFFFF 30%, #333333 100%);
+        margin: 6px 0 6px;
+        letter-spacing: -2px;
+        background: linear-gradient(90deg, #FFFFFF 30%, #AAB7C4 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        letter-spacing: -3px;
     }
 
+    /* SUBTITLE */
     .system-status {
-        color: #00f6ff;
+        color: rgba(0,246,255,0.95);
         font-family: monospace;
-        letter-spacing: 5px;
-        font-size: 0.7rem;
-        text-align: center;
-        margin-bottom: 30px;
+        letter-spacing: 6px;
+        font-size: 0.78rem;
+        margin-bottom: 22px;
+    }
+
+    /* LINK BOX (simulating the download box in screenshot) */
+    .link-box {
+        margin: 18px auto 6px;
+        max-width: 560px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.007));
+        border: 1px solid rgba(255,255,255,0.03);
+        padding: 14px 18px;
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+        color: rgba(230,247,255,0.9);
+        font-family: monospace;
+        font-size: 0.95rem;
+    }
+    .link-box .copy {
+        float: right;
+        background: rgba(255,255,255,0.03);
+        padding: 6px 8px;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.02);
+        cursor: pointer;
+    }
+
+    /* CTA button subtle */
+    .get-link {
+        display:inline-block;
+        margin-top: 10px;
+        padding: 10px 16px;
+        border-radius: 10px;
+        background: linear-gradient(90deg, rgba(0,246,255,0.08), rgba(124,60,255,0.03));
+        border: 1px solid rgba(0,246,255,0.06);
+        color: rgba(230,247,255,0.95);
+        font-weight:600;
+        cursor:pointer;
     }
 
     /* CHAT BUBBLES */
@@ -68,40 +146,93 @@ st.markdown("""
         margin-bottom: 15px;
         max-width: 85%;
         line-height: 1.6;
+        box-shadow: 0 10px 30px rgba(2,6,23,0.6);
     }
     .user-bubble {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255,255,255,0.04);
         align-self: flex-end;
         margin-left: auto;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255,255,255,0.06);
     }
     .ai-bubble {
-        background: linear-gradient(90deg, rgba(0, 246, 255, 0.05), transparent);
+        background: linear-gradient(90deg, rgba(0,246,255,0.04), rgba(255,255,255,0.01));
         align-self: flex-start;
-        border: 1px solid rgba(0, 246, 255, 0.1);
+        border: 1px solid rgba(0,246,255,0.06);
     }
 
     /* INPUT STYLING */
-    .stTextInput > div > div > input {
-        background-color: #0A0A0A !important;
-        border: 1px solid #333 !important;
-        color: white !important;
-        padding: 15px !important;
+    .stTextInput > div > div > input,
+    .stTextArea textarea {
+        background-color: #07121A !important;
+        border: 1px solid rgba(255,255,255,0.03) !important;
+        color: #EAF9FF !important;
+        padding: 14px !important;
+        border-radius: 12px !important;
     }
     
     .stButton > button {
         width: 100% !important;
-        background: #00f6ff !important;
+        background: linear-gradient(90deg,#00f6ff,#bfeaff) !important;
         color: black !important;
         font-weight: 900 !important;
         border: none !important;
         border-radius: 10px !important;
         padding: 12px !important;
-        transition: 0.3s;
+        transition: 0.25s;
     }
     .stButton > button:hover {
-        background: #FFFFFF !important;
         transform: scale(1.02);
+        box-shadow: 0 8px 30px rgba(0,246,255,0.08);
+    }
+
+    /* LOADING OVERLAY (full-screen, shown once) */
+    .boot-overlay {
+        position: fixed;
+        inset: 0;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        z-index:9999;
+        background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(2,6,23,0.85));
+    }
+    .boot-card {
+        width: 86%;
+        max-width: 520px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+        border-radius: 18px;
+        padding: 30px;
+        text-align:center;
+        border:1px solid rgba(255,255,255,0.03);
+        box-shadow: 0 30px 120px rgba(0,0,0,0.8);
+    }
+    .boot-title {
+        font-size: 1.5rem;
+        font-weight:800;
+        background:linear-gradient(90deg,#00f6ff,#ffffff);
+        -webkit-background-clip:text;
+        -webkit-text-fill-color:transparent;
+        margin-bottom:10px;
+    }
+    .boot-sub {color: rgba(0,246,255,0.9); font-family:monospace; letter-spacing:4px; margin-bottom:16px;}
+    .boot-bar {
+        height:4px;
+        width:100%;
+        background: linear-gradient(90deg, transparent, #00f6ff, transparent);
+        background-size:200% 100%;
+        animation:boot-scan 1.6s linear infinite;
+        border-radius:6px;
+        margin-top:6px;
+    }
+    @keyframes boot-scan {
+        0%{background-position:200% 0}
+        100%{background-position:-200% 0}
+    }
+
+    /* responsive tweaks */
+    @media (max-width:640px) {
+        .login-card{padding:22px;border-radius:14px}
+        .hero-title{font-size:1.6rem}
+        .link-box{padding:12px}
     }
     </style>
 """, unsafe_allow_html=True)
@@ -129,6 +260,25 @@ def check_identity(id_name):
 if "auth" not in st.session_state: st.session_state.auth = False
 if "chat_history" not in st.session_state: st.session_state.chat_history = []
 
+# --- BOOT LOADING (one-time overlay) ---
+if "boot_done" not in st.session_state:
+    st.session_state.boot_done = True
+    with st.empty():
+        st.markdown("""
+        <div class="boot-overlay">
+            <div class="boot-card">
+                <div style="display:flex;justify-content:center;margin-bottom:10px;">
+                    <div class="hero-icon"><span class="emoji">🖥️</span></div>
+                </div>
+                <div class="boot-title">IEA AI</div>
+                <div class="boot-sub">INITIALIZING SYSTEM</div>
+                <div class="boot-bar"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        time.sleep(2.2)
+        st.rerun()
+
 # --- UI: LOGIN INTERFACE ---
 if not st.session_state.auth:
     st.markdown("<div style='height: 15vh;'></div>", unsafe_allow_html=True)
@@ -155,9 +305,9 @@ if not st.session_state.auth:
 else:
     # Header minimalis
     st.markdown(f"""
-        <div style='display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom: 1px solid #222;'>
+        <div style='display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.02);'>
             <div style='color:#00f6ff; font-weight:900;'>OPERATOR: {st.session_state.user}</div>
-            <div style='color:#444; font-size:0.7rem; font-family:monospace;'>MODEL: LLAMA-3.3-70B</div>
+            <div style='color:rgba(255,255,255,0.45); font-size:0.7rem; font-family:monospace;'>MODEL: LLAMA-3.3-70B</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -181,7 +331,7 @@ else:
     # Logika AI (Lari setelah rerun jika pesan terakhir adalah user)
     if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "user":
         with st.chat_message("assistant"):
-            st.markdown("<div class='loader'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height:6px;background:linear-gradient(90deg,transparent,#00f6ff,transparent);background-size:200% 100%;animation:scan 1.6s linear infinite;border-radius:4px;margin-bottom:8px'></div>", unsafe_allow_html=True)
             try:
                 from langchain_groq import ChatGroq
                 from langchain_core.messages import SystemMessage, HumanMessage
@@ -213,4 +363,4 @@ else:
         if st.button("LOGOUT / LOCK"):
             st.session_state.auth = False
             st.session_state.chat_history = []
-            st.rerun()      
+            st.rerun()
