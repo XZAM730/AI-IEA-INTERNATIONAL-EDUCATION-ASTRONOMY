@@ -2,154 +2,175 @@ import streamlit as st
 import requests
 import time
 
-# --- PENGAMAN IMPORT LIBRARY ---
+# --- PENGAMAN IMPORT ---
 try:
     from langchain_groq import ChatGroq
     from langchain_core.messages import SystemMessage, HumanMessage
 except ImportError:
-    st.error(" Library missing! Pastikan requirements.txt sudah benar.")
+    st.error("🚨 Library error! Pastikan requirements.txt sudah benar.")
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(
-    page_title="IEA COSMOS AI",
-    page_icon="🌌",
+    page_title="IEA COSMOS TERMINAL",
+    page_icon="🔭",
     layout="wide"
 )
 
-# --- CSS: FUTURISTIC ANIMATION & UI ---
+# --- CSS: ULTIMATE FUTURISTIC UI ---
 st.markdown("""
     <style>
-    /* Background & Font */
+    /* Reset & Base Theme */
     .stApp {
-        background: radial-gradient(circle at top, #1a0033 0%, #05000a 100%);
+        background: radial-gradient(circle at top right, #0d001a, #020107);
         color: #e0e0e0;
     }
 
-    /* Efek Loading Pulse untuk Judul */
-    @keyframes pulse {
-        0% { text-shadow: 0 0 10px #bc13fe; }
-        50% { text-shadow: 0 0 25px #00f2ff, 0 0 40px #bc13fe; }
-        100% { text-shadow: 0 0 10px #bc13fe; }
-    }
-    .loading-text {
-        animation: pulse 2s infinite;
-        font-family: 'Courier New', monospace;
-        color: #00f2ff;
+    /* Typography Logo (Ganti Gambar) */
+    .nebula-title {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 3.5rem;
+        font-weight: 900;
         text-align: center;
+        background: linear-gradient(90deg, #00f2ff, #bc13fe, #00f2ff);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shine 3s linear infinite;
+        margin-bottom: 0;
     }
 
-    /* Card Glassmorphism */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(15px);
-        border: 1px solid rgba(188, 19, 254, 0.2);
-        border-radius: 20px;
-        padding: 2rem;
-        box-shadow: 0 0 30px rgba(188, 19, 254, 0.1);
+    @keyframes shine {
+        to { background-position: 200% center; }
     }
 
-    /* Custom Spinner */
-    .stSpinner > div {
-        border-top-color: #bc13fe !important;
+    /* Glassmorphism Container */
+    .glass-panel {
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        border: 1px solid rgba(0, 242, 255, 0.1);
+        padding: 40px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     }
 
-    /* Button Neon */
-    .stButton>button {
-        background: linear-gradient(45deg, #4b0082, #bc13fe) !important;
-        border: none !important;
-        color: white !important;
-        font-weight: bold !important;
-        letter-spacing: 3px !important;
-        height: 3em !important;
-        transition: 0.5s !important;
+    /* Input & Chat Styling */
+    .stChatMessage {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border-radius: 20px !important;
+        border: 1px solid rgba(188, 19, 254, 0.1) !important;
+        transition: 0.3s;
     }
-    .stButton>button:hover {
-        box-shadow: 0 0 20px #bc13fe !important;
-        transform: scale(1.02);
+
+    .stChatMessage:hover {
+        border-color: rgba(0, 242, 255, 0.4) !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+    }
+
+    /* Responsivitas Gadget */
+    @media (max-width: 768px) {
+        .nebula-title { font-size: 2rem; }
+        .glass-panel { padding: 20px; }
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- DATABASE & API ---
+# --- DATABASE & CONFIG ---
 FIREBASE_URL = "https://iea-pendaftaran-default-rtdb.asia-southeast1.firebasedatabase.app"
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
+# --- LOGIC PEMERIKSAAN MEMBER ---
 def check_membership(name):
     name = name.strip().lower()
     grup_list = ["iea_grup_1", "iea_grup_2"]
     try:
         for grup in grup_list:
-            data = requests.get(f"{FIREBASE_URL}/{grup}.json").json()
+            res = requests.get(f"{FIREBASE_URL}/{grup}.json", timeout=10)
+            data = res.json()
             if data:
                 for key in data:
                     if data[key].get('n', '').lower() == name: return True
         return False
     except: return False
 
-# --- LOGIC SESSION ---
+# --- STATE MANAGEMENT ---
 if "auth" not in st.session_state: st.session_state.auth = False
-if "msgs" not in st.session_state: st.session_state.msgs = []
+if "chat_history" not in st.session_state: st.session_state.chat_history = []
 
-# --- UI LOGIN ---
+# --- HALAMAN LOGIN ---
 if not st.session_state.auth:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    _, col2, _ = st.columns([1, 2, 1])
+    st.markdown("<div style='height: 15vh;'></div>", unsafe_allow_html=True)
+    st.markdown("<h1 class='nebula-title'>IEA QUANTUM</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; letter-spacing: 5px; color:#bc13fe; font-size:0.7rem;'>SECURE ASTRONOMY INTERFACE</p>", unsafe_allow_html=True)
     
-    with col2:
-        st.markdown("<h1 style='text-align:center; color:#bc13fe;'>IEA TERMINAL</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center; font-size:0.8em;'>QUANTUM ENCRYPTION ENABLED</p>", unsafe_allow_html=True)
+    _, col_mid, _ = st.columns([1, 2, 1])
+    with col_mid:
+        st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
+        user_input = st.text_input("ENTER ACCESS KEY (NAME)", placeholder="Your registered name...")
         
-        with st.container():
-            st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-            nama = st.text_input("USER IDENTIFICATION", placeholder="Type your name...")
-            
-            if st.button("CONNECT TO COSMOS"):
-                if nama:
-                    # EFEK LOADING LOGIN YANG KEREN
-                    with st.status(" Establishing Quantum Link...", expanded=True) as status:
-                        st.write(" Scanning IEA Database...")
+        if st.button("AUTHORIZE ACCESS"):
+            if user_input:
+                with st.status("Initializing Security Protocol...", expanded=True) as status:
+                    st.write("📡 Connecting to IEA Firebase...")
+                    time.sleep(1)
+                    if check_membership(user_input):
+                        st.write("🔓 Identity Decrypted. Access Granted.")
+                        st.session_state.auth = True
+                        st.session_state.user = user_input.upper()
+                        status.update(label="SYSTEM READY", state="complete")
                         time.sleep(1)
-                        if check_membership(nama):
-                            st.write(" Identity Verified.")
-                            time.sleep(0.5)
-                            st.write(" Syncing with Deep Space Network...")
-                            time.sleep(1)
-                            st.session_state.auth = True
-                            st.session_state.user = nama.upper()
-                            status.update(label="CONNECTION ESTABLISHED", state="complete")
-                            st.rerun()
-                        else:
-                            st.error(" ACCESS DENIED: Identity Unknown.")
-            st.markdown("</div>", unsafe_allow_html=True)
+                        st.rerun()
+                    else:
+                        st.error("❌ UNAUTHORIZED: Name not in records.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-# --- UI CHAT ---
+# --- HALAMAN CHAT ---
 else:
-    st.markdown(f"<p class='loading-text'>SATELLITE LINK ACTIVE: {st.session_state.user}</p>", unsafe_allow_html=True)
-    
-    # Riwayat Chat
-    for m in st.session_state.msgs:
-        with st.chat_message(m["role"]): st.markdown(m["content"])
+    # Sidebar Info
+    with st.sidebar:
+        st.markdown(f"### 👩‍🚀 Operator: {st.session_state.user}")
+        st.markdown("---")
+        st.caption("IEA AI v2.5 - Model: Llama 3.3 70B")
+        if st.button("Logout"):
+            st.session_state.auth = False
+            st.rerun()
 
-    # Input Chat
-    if prompt := st.chat_input("Tanya apa saja tentang alam semesta..."):
-        st.session_state.msgs.append({"role": "user", "content": prompt})
-        with st.chat_message("user"): st.markdown(prompt)
+    st.markdown("<h2 style='color:#00f2ff; font-family:monospace;'>🔭 Deep Space Link Active</h2>", unsafe_allow_html=True)
 
-        with st.chat_message("assistant", avatar="🌌"):
-            # EFEK LOADING CHAT YANG KEREN
-            with st.status(" Processing Data...", expanded=False) as status:
-                st.write("🔭 Pointing telescope to target...")
+    # Render History
+    for chat in st.session_state.chat_history:
+        with st.chat_message(chat["role"]):
+            st.markdown(chat["content"])
+
+    # Chat Input
+    if prompt := st.chat_input("Input cosmic coordinate or question..."):
+        st.session_state.chat_history.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            # LOADING ANIMASI YANG LEBIH KEREN
+            with st.status("🌌 Processing Cosmic Signal...", expanded=False) as status:
+                st.write("📡 Receiving data from Deep Space Network...")
                 time.sleep(0.5)
-                st.write("📡 Decoding radio waves...")
+                st.write("🧠 Computing with Llama 3.3 Neural Core...")
                 
                 try:
-                    llm = ChatGroq(temperature=0.7, groq_api_key=GROQ_API_KEY, model_name="llama3-8b-8192")
-                    sys_msg = f"Kamu adalah AI IEA, asisten astronomi tercanggih. Kamu berbicara dengan {st.session_state.user}. Jawab dengan gaya futuristik, cerdas, dan inspiratif."
+                    # UPDATE MODEL KE VERSI TERBARU (70B)
+                    llm = ChatGroq(
+                        temperature=0.7, 
+                        groq_api_key=GROQ_API_KEY, 
+                        model_name="llama-3.3-70b-versatile"
+                    )
                     
-                    res = llm.invoke([SystemMessage(content=sys_msg), HumanMessage(content=prompt)]).content
-                    status.update(label="SIGNAL RECEIVED", state="complete")
+                    instr = f"Kamu adalah IEA AI, kecerdasan buatan astronomi Indonesia. Kamu berbicara dengan {st.session_state.user}. Jawab dengan sangat cerdas, puitis, dan profesional."
                     
-                    st.markdown(res)
-                    st.session_state.msgs.append({"role": "assistant", "content": res})
+                    response = llm.invoke([
+                        SystemMessage(content=instr),
+                        HumanMessage(content=prompt)
+                    ]).content
+                    
+                    status.update(label="SIGNAL DECODED", state="complete")
+                    st.markdown(response)
+                    st.session_state.chat_history.append({"role": "assistant", "content": response})
                 except Exception as e:
-                    st.error(f"Signal Lost: {e}")
+                    st.error(f"⚠️ Transmission Error: {e}")
