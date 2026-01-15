@@ -4,6 +4,6 @@ langchain
 langchain-core
 langchain-groq
 graphviz
-gtts
+gTTS
 fpdf
-pypdf
+PyPDF2
