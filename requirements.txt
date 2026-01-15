@@ -3,3 +3,7 @@ requests
 langchain
 langchain-core
 langchain-groq
+graphviz
+gtts
+fpdf
+pypdf
