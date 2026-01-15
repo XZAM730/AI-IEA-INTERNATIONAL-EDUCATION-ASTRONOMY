@@ -1,425 +1,378 @@
 import streamlit as st
 import requests
 import time
-import html
-from datetime import datetime
+import datetime
+import re
+from io import BytesIO
+from gtts import gTTS
+from fpdf import FPDF
+from PyPDF2 import PdfReader
+from langchain_groq import ChatGroq
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
-# --- CONFIGURATION ---
+# --- 1. SYSTEM INIT & CONFIG ---
 st.set_page_config(
-    page_title="IEA AI",
-    page_icon="🪐",
+    page_title="IEA OMNI-TERMINAL",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded",
+    page_icon="💠"
 )
 
-# --- CSS: NEON PURPLE BLUR THEME + LOADING + TYPEWRITER --- 
+# --- 2. ADVANCED CSS: OBSIDIAN GLASS THEME ---
 st.markdown("""
     <style>
-    /* HIDE STREAMLIT BRANDING */
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    div[data-testid="stDecoration"] {display: none !important;}
-    [data-testid="stHeader"] {background: rgba(0,0,0,0);}
-    .viewerBadge_container__1QS1Z {display: none !important;}
-    [data-testid="stDeployButton"] {display: none !important;}
-
-    /* GLOBAL BACKGROUND (deep navy with neon purple glow + blur) */
+    /* CORE HIDING */
+    #MainMenu, header, footer, [data-testid="stDecoration"] {visibility: hidden; display: none;}
+    
+    /* GLOBAL FONTS & COLORS */
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+    
     .stApp {
-        background: radial-gradient(circle at 10% 10%, #0b0f1a 0%, #070818 25%, #04020b 60%, #000000 100%);
-        color: #F2F7FF;
-        font-family: 'Inter', -apple-system, sans-serif;
-        min-height: 100vh;
-        overflow-x: hidden;
+        background-color: #050505;
+        color: #e0e0e0;
+        font-family: 'JetBrains Mono', monospace;
     }
 
-    /* ambient neon blur layers */
-    .ambient {
-        position: fixed;
-        width: 80vmax;
-        height: 80vmax;
-        left: -10vmax;
-        top: -20vmax;
-        filter: blur(80px) saturate(140%);
-        opacity: 0.16;
-        pointer-events: none;
-        z-index: 0;
-        background: radial-gradient(circle at 30% 30%, rgba(124, 58, 237, 0.9), transparent 25%),
-                    radial-gradient(circle at 80% 80%, rgba(88, 28, 135, 0.8), transparent 25%);
+    /* CUSTOM SCROLLBAR */
+    ::-webkit-scrollbar {width: 5px; background: #000;}
+    ::-webkit-scrollbar-thumb {background: #333; border-radius: 2px;}
+
+    /* TABS STYLING (PHYSICAL LOOK) */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: #050505;
+        padding: 10px 0;
+        border-bottom: 1px solid #333;
     }
-    .ambient2 {
-        position: fixed;
-        width: 60vmax;
-        height: 60vmax;
-        right: -5vmax;
-        bottom: -10vmax;
-        filter: blur(60px) saturate(130%);
-        opacity: 0.12;
-        pointer-events: none;
-        z-index: 0;
-        background: radial-gradient(circle at 20% 20%, rgba(72, 16, 144, 0.8), transparent 30%),
-                    radial-gradient(circle at 70% 70%, rgba(148, 50, 255, 0.6), transparent 30%);
+    .stTabs [data-baseweb="tab"] {
+        height: 45px;
+        background-color: #0f0f0f;
+        border: 1px solid #333;
+        border-bottom: none;
+        color: #666;
+        border-radius: 4px 4px 0 0;
+        font-family: 'JetBrains Mono', monospace;
+        transition: all 0.3s;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #1a1a1a;
+        color: #00f6ff;
+        border-color: #00f6ff;
+        border-bottom: 1px solid #1a1a1a; /* Blend with content */
     }
 
-    /* TOP STATUS (small text) */
-    .top-status {
-        position: absolute;
-        left: 14px;
-        top: 8px;
-        color: rgba(242,247,255,0.75);
-        font-size: 0.8rem;
-        font-family: monospace;
-        letter-spacing: 0.4px;
-        z-index: 5;
+    /* CHAT BUBBLES (MINIMALIST) */
+    .stChatMessage {
+        background: transparent !important;
+        padding: 20px 0 !important;
+        border-bottom: 1px solid #111;
+    }
+    [data-testid="stChatMessageAvatarUser"] {
+        background-color: #222 !important; color: #fff !important; border-radius: 0px !important;
+    }
+    [data-testid="stChatMessageAvatarAssistant"] {
+        background-color: #000 !important; border: 1px solid #00f6ff !important; color: #00f6ff !important; border-radius: 0px !important;
     }
 
-    /* LOGIN CARD (glass + heavy blur) */
-    .login-card {
-        margin: 48px auto 24px;
-        max-width: 720px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.008));
-        border: 1px solid rgba(180,150,255,0.06);
-        border-radius: 18px;
-        padding: 36px;
-        text-align: center;
-        box-shadow: 0 30px 120px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.02);
-        backdrop-filter: blur(8px) saturate(120%);
-        position: relative;
-        z-index: 3;
+    /* INPUT FIELDS */
+    .stTextInput input, .stTextArea textarea {
+        background: #080808 !important; color: #fff !important; 
+        border: 1px solid #333 !important; border-radius: 0px !important;
+        font-family: 'JetBrains Mono', monospace !important;
+    }
+    .stTextInput input:focus, .stTextArea textarea:focus {
+        border-color: #00f6ff !important; box-shadow: 0 0 10px rgba(0,246,255,0.1) !important;
     }
 
-    .hero-icon {
-        width: 84px;
-        height: 84px;
-        margin: 0 auto 18px;
-        border-radius: 18px;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        background: rgba(255,255,255,0.02);
-        border: 1px solid rgba(255,255,255,0.03);
+    /* BUTTONS */
+    .stButton button {
+        background: #111 !important; color: #aaa !important; 
+        border: 1px solid #333 !important; border-radius: 0px !important;
+        text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s;
+    }
+    .stButton button:hover {
+        background: #00f6ff !important; color: #000 !important; border-color: #00f6ff !important;
     }
 
-    .hero-title {
-        font-size: clamp(2rem, 6vw, 3.6rem);
-        font-weight: 900;
-        margin: 6px 0 6px;
-        letter-spacing: -2px;
-        background: linear-gradient(90deg, #F8F9FF 30%, #C9B8FF 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-
-    .system-status {
-        color: rgba(180, 180, 255, 0.98);
-        font-family: monospace;
-        letter-spacing: 6px;
-        font-size: 0.78rem;
-        margin-bottom: 22px;
-    }
-
-    .link-box {
-        margin: 18px auto 6px;
-        max-width: 560px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.007));
-        border: 1px solid rgba(255,255,255,0.03);
-        padding: 14px 18px;
-        border-radius: 12px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-        color: rgba(230,247,255,0.9);
-        font-family: monospace;
-        font-size: 0.95rem;
-    }
-
-    /* neon blur glow for CTA */
-    .get-link {
-        display:inline-block;
-        margin-top: 10px;
-        padding: 10px 16px;
-        border-radius: 10px;
-        background: linear-gradient(90deg, rgba(124,58,237,0.12), rgba(99,102,241,0.06));
-        border: 1px solid rgba(148,50,255,0.12);
-        color: rgba(250,250,255,0.95);
-        font-weight:600;
-        cursor:pointer;
-        box-shadow: 0 8px 30px rgba(124,58,237,0.12);
-    }
-
-    /* CHAT BUBBLES (slightly blurred and neon outline) */
-    .bubble {
-        padding: 15px 20px;
-        border-radius: 15px;
-        margin-bottom: 15px;
-        max-width: 85%;
-        line-height: 1.6;
-        box-shadow: 0 10px 40px rgba(2,6,23,0.6);
-        backdrop-filter: blur(3px);
-    }
-    .user-bubble {
-        background: rgba(255,255,255,0.04);
-        align-self: flex-end;
-        margin-left: auto;
-        border: 1px solid rgba(255,255,255,0.06);
-    }
-    .ai-bubble {
-        background: linear-gradient(90deg, rgba(124,58,237,0.06), rgba(255,255,255,0.01));
-        align-self: flex-start;
-        border: 1px solid rgba(148,50,255,0.08);
-        box-shadow: 0 10px 40px rgba(99,102,241,0.08);
-    }
-
-    /* INPUT STYLING */
-    .stTextInput > div > div > input,
-    .stTextArea textarea {
-        background-color: rgba(5,8,12,0.8) !important;
-        border: 1px solid rgba(255,255,255,0.03) !important;
-        color: #EAF9FF !important;
-        padding: 14px !important;
-        border-radius: 12px !important;
-        backdrop-filter: blur(3px);
+    /* SIDEBAR */
+    [data-testid="stSidebar"] {
+        background-color: #020202;
+        border-right: 1px solid #222;
     }
     
-    .stButton > button {
-        width: 100% !important;
-        background: linear-gradient(90deg,#b28aff,#6e3bff) !important;
-        color: white !important;
-        font-weight: 900 !important;
-        border: none !important;
-        border-radius: 10px !important;
-        padding: 12px !important;
-        transition: 0.25s;
-        box-shadow: 0 10px 30px rgba(124,58,237,0.15);
+    /* BOOT SCREEN ANIMATION */
+    #boot-layer {
+        position: fixed; inset: 0; z-index: 9999; background: #000;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        animation: systemBoot 0.5s ease-in-out 3.5s forwards; pointer-events: none;
     }
-    .stButton > button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 14px 40px rgba(124,58,237,0.22);
-    }
+    .boot-text { color: #00f6ff; font-size: 0.8rem; margin-top: 10px; letter-spacing: 3px; }
+    .scan-line { width: 200px; height: 2px; background: #333; overflow: hidden; position: relative; }
+    .scan-prog { width: 0%; height: 100%; background: #00f6ff; animation: loadBar 3s ease-out forwards; }
+    
+    @keyframes loadBar { 0%{width:0%} 100%{width:100%} }
+    @keyframes systemBoot { to {opacity: 0; visibility: hidden;} }
 
-    /* LOADING OVERLAY (full-screen, shown once) */
-    .boot-overlay {
-        position: fixed;
-        inset: 0;
-        display:flex;
-        justify-content:center;
-        align-items:center;
-        z-index:9999;
-        background: linear-gradient(180deg, rgba(2,0,10,0.65), rgba(6,2,20,0.85));
+    /* METRIC CARD IN SIDEBAR */
+    .stat-box {
+        border: 1px solid #222; padding: 10px; margin-bottom: 5px; background: #080808;
     }
-    .boot-card {
-        width: 86%;
-        max-width: 520px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-        border-radius: 18px;
-        padding: 30px;
-        text-align:center;
-        border:1px solid rgba(255,255,255,0.03);
-        box-shadow: 0 30px 120px rgba(0,0,0,0.8);
-        backdrop-filter: blur(6px) saturate(120%);
-    }
-    .boot-title {
-        font-size: 1.4rem;
-        font-weight:800;
-        background:linear-gradient(90deg,#e6d5ff,#ffffff);
-        -webkit-background-clip:text;
-        -webkit-text-fill-color:transparent;
-        margin-bottom:8px;
-    }
-    .boot-sub {color: rgba(180,170,255,0.95); font-family:monospace; letter-spacing:4px; margin-bottom:12px;}
-    .boot-bar {
-        height:4px;
-        width:100%;
-        background: linear-gradient(90deg, transparent, rgba(148,50,255,0.9), transparent);
-        background-size:200% 100%;
-        animation:boot-scan 1.6s linear infinite;
-        border-radius:6px;
-        margin-top:6px;
-    }
-    @keyframes boot-scan {
-        0%{background-position:200% 0}
-        100%{background-position:-200% 0}
-    }
+    .stat-label { font-size: 0.65rem; color: #666; text-transform: uppercase; }
+    .stat-val { font-size: 0.9rem; color: #00f6ff; font-weight: bold; }
 
-    /* typing cursor style (for typewriter placeholder) */
-    .typewriter {
-        font-family: Inter, -apple-system, sans-serif;
-        color: #eaf6ff;
-        border-left: 2px solid rgba(255,255,255,0.6);
-        padding-left: 6px;
-        animation: blink 1s steps(2, start) infinite;
-    }
-    @keyframes blink {
-        50% { border-color: transparent; }
-    }
-
-    /* responsive tweaks */
-    @media (max-width:640px) {
-        .login-card{padding:22px;border-radius:14px}
-        .hero-title{font-size:1.6rem}
-        .link-box{padding:12px}
-    }
     </style>
+    
+    <div id="boot-layer">
+        <h2 style="color:#fff; font-family:'JetBrains Mono'; letter-spacing:5px; margin-bottom:20px;">IEA SYSTEMS</h2>
+        <div class="scan-line"><div class="scan-prog"></div></div>
+        <div class="boot-text">INITIALIZING CORE MODULES...</div>
+    </div>
 """, unsafe_allow_html=True)
 
-# ambient blurred neon layers
-st.markdown('<div class="ambient"></div><div class="ambient2"></div>', unsafe_allow_html=True)
-
-# --- DATABASE & AUTH LOGIC ---
+# --- 3. BACKEND FUNCTIONS ---
 FIREBASE_URL = "https://iea-pendaftaran-default-rtdb.asia-southeast1.firebasedatabase.app"
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
-def check_identity(id_name):
-    """Verifikasi ID di database Firebase IEA"""
-    id_name = id_name.strip().lower()
-    grup_list = ["iea_grup_1", "iea_grup_2"]
+def verify_user(username):
+    """Verifikasi User ke Firebase"""
+    username = username.strip().lower()
+    grups = ["iea_grup_1", "iea_grup_2"]
     try:
-        for grup in grup_list:
-            res = requests.get(f"{FIREBASE_URL}/{grup}.json", timeout=10).json()
+        for g in grups:
+            res = requests.get(f"{FIREBASE_URL}/{g}.json", timeout=5).json()
             if res:
-                for key in res:
-                    if res[key].get('n', '').lower() == id_name:
-                        return True
-        return False
+                for k, v in res.items():
+                    if v.get('n', '').lower() == username:
+                        return True, v.get('n').upper()
+        return False, None
     except:
-        return False
+        return False, None
 
-# --- STATE MANAGEMENT ---
+def extract_pdf_text(uploaded_file):
+    """Membaca teks dari file PDF"""
+    try:
+        pdf_reader = PdfReader(uploaded_file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+        return text
+    except Exception as e:
+        return str(e)
+
+def generate_pdf_report(history, user):
+    """Membuat laporan PDF dari chat"""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Courier", size=10)
+    
+    # Header
+    pdf.cell(0, 10, txt="IEA MISSION LOG REPORT", ln=1, align='C')
+    pdf.cell(0, 10, txt=f"OPERATOR: {user} | DATE: {datetime.date.today()}", ln=1, align='C')
+    pdf.ln(10)
+    
+    # Content
+    for msg in history:
+        role = "SYS" if msg['role'] == "assistant" else "OPR"
+        # Sanitize text for basic FPDF (removes emoji/special chars)
+        clean_text = msg['content'].encode('latin-1', 'replace').decode('latin-1')
+        pdf.multi_cell(0, 5, txt=f"[{role}]: {clean_text}")
+        pdf.ln(3)
+        
+    return pdf.output(dest='S').encode('latin-1')
+
+def generate_audio(text):
+    """Text to Speech Engine"""
+    try:
+        # Batasi karakter agar tidak error/lambat
+        clean_text = re.sub(r'[*_`#]', '', text)[:400] 
+        tts = gTTS(text=clean_text, lang='id', slow=False)
+        fp = BytesIO()
+        tts.write_to_fp(fp)
+        return fp
+    except:
+        return None
+
+# --- 4. SESSION MANAGEMENT ---
 if "auth" not in st.session_state: st.session_state.auth = False
-if "chat_history" not in st.session_state: st.session_state.chat_history = []
+if "username" not in st.session_state: st.session_state.username = "UNKNOWN"
+if "messages" not in st.session_state: st.session_state.messages = []
+if "doc_context" not in st.session_state: st.session_state.doc_context = ""
+if "last_graph" not in st.session_state: st.session_state.last_graph = None
 
-# --- BOOT LOADING (one-time overlay) ---
-if "boot_done" not in st.session_state:
-    st.session_state.boot_done = True
-    with st.empty():
+# --- 5. AUTHENTICATION PAGE ---
+if not st.session_state.auth:
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("""
-        <div class="boot-overlay">
-            <div class="boot-card">
-                <div style="display:flex;justify-content:center;margin-bottom:10px;">
-                    <div class="hero-icon"><span class="emoji">🖥️</span></div>
-                </div>
-                <div class="boot-title">IEA AI</div>
-                <div class="boot-sub">INITIALIZING SYSTEM</div>
-                <div class="boot-bar"></div>
-            </div>
+        <div style="border:1px solid #333; background:#0a0a0a; padding:40px; text-align:center;">
+            <h2 style="color:#fff; letter-spacing:4px; margin-bottom:5px;">IEA ACCESS</h2>
+            <p style="color:#666; font-size:0.8rem; margin-bottom:30px;">SECURE TERMINAL LOGIN</p>
         </div>
         """, unsafe_allow_html=True)
-        time.sleep(2.2)
-        st.rerun()
-
-# --- helper: nicer ID verification loading (UX only) ---
-def verify_identity_with_fanciness(user_id):
-    # keep original logic but add UX delays (no logic change)
-    with st.spinner("Decrypting Identity..."):
-        time.sleep(1.1)  # short cinematic pause
-        ok = check_identity(user_id)
-        time.sleep(0.8)  # moment to feel the scan
-        return ok
-
-# --- helper: typewriter effect (display inside assistant block, then append full) ---
-def typewriter_streaming(response_text, container, bubble_class="ai-bubble", speed=0.015, chunk=24):
-    """
-    container: a streamlit element (e.g., st.empty()) inside which we render incremental content.
-    We'll render chunks of text to give the typing feel, then return when done.
-    """
-    displayed = ""
-    # use chunked updates (faster than per-char for long text)
-    for i in range(0, len(response_text), chunk):
-        piece = response_text[i:i+chunk]
-        displayed += piece
-        # render as bubble (so it visually matches chat bubbles)
-        container.markdown(f"<div class='bubble {bubble_class} typewriter'>{html.escape(displayed).replace('\\n','<br>')}</div>", unsafe_allow_html=True)
-        time.sleep(speed)
-    # leave final content rendered
-    return
-
-# --- UI: LOGIN INTERFACE ---
-if not st.session_state.auth:
-    st.markdown("<div style='height: 12vh;'></div>", unsafe_allow_html=True)
-    st.markdown("<h1 class='hero-title'>IEA</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='system-status'>IDENTITY VERIFICATION ID CARD</p>", unsafe_allow_html=True)
-    
-    _, col_mid, _ = st.columns([1, 2, 1])
-    with col_mid:
-        st.markdown("<div class='login-card'>", unsafe_allow_html=True)
-        user_id = st.text_input("NICK ID CARD (ENTER NAME)", placeholder="Masukkan nama terdaftar...")
         
-        if st.button("VERIFIKASI"):
-            if user_id:
-                # use the nicer verification helper (UX only)
-                verified = verify_identity_with_fanciness(user_id)
-                if verified:
-                    st.session_state.auth = True
-                    st.session_state.user = user_id.upper()
-                    st.rerun()
-                else:
-                    st.error("ACCESS DENIED: Identity not found in IEA Database.")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-# --- UI: MAIN CHAT TERMINAL ---
-else:
-    # Header minimalis
-    st.markdown(f"""
-        <div style='display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.02); position: relative; z-index: 3;'>
-            <div style='color:#bfa7ff; font-weight:900;'>OPERATOR: {st.session_state.user}</div>
-            <div style='color:rgba(255,255,255,0.45); font-size:0.7rem; font-family:monospace;'>AI IEA</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Render History (static snapshot)
-    chat_container = st.container()
-    with chat_container:
-        for chat in st.session_state.chat_history:
-            role_class = "user-bubble" if chat["role"] == "user" else "ai-bubble"
-            st.markdown(f"<div class='bubble {role_class}'>{chat['content']}</div>", unsafe_allow_html=True)
-
-    # Input Form (Tanpa Fitur Gambar)
-    with st.form("chat_input", clear_on_submit=True):
-        prompt = st.text_area("Message", placeholder="Tulis pesan kamu di sini...", height=100)
-        submit = st.form_submit_button("KIRIM")
-
-        if submit and prompt.strip():
-            # Tambah pesan user
-            st.session_state.chat_history.append({"role": "user", "content": prompt})
-            st.rerun()
-
-    # Logika AI (Lari setelah rerun jika pesan terakhir adalah user)
-    if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "user":
-        # create a chat_message assistant block to show loader and typewriter in context
-        with st.chat_message("assistant"):
-            st.markdown("<div style='height:6px;background:linear-gradient(90deg,transparent,rgba(148,50,255,0.9),transparent);background-size:200% 100%;animation:scan 1.6s linear infinite;border-radius:4px;margin-bottom:8px'></div>", unsafe_allow_html=True)
-            try:
-                from langchain_groq import ChatGroq
-                from langchain_core.messages import SystemMessage, HumanMessage
-                
-                llm = ChatGroq(temperature=0.7, groq_api_key=GROQ_API_KEY, model_name="llama-3.3-70b-versatile")
-                
-                # Membangun konteks percakapan (TIDAK DIUBAH)
-                messages = [SystemMessage(content=f"Kamu adalah AI IEA. Kamu berbicara dengan {st.session_state.user}. Jawab dengan sangat cerdas, puitis, dan profesional dalam Bahasa Indonesia.")]
-                
-                # Ambil 5 pesan terakhir untuk memori
-                for m in st.session_state.chat_history[-6:]:
-                    if m["role"] == "user":
-                        messages.append(HumanMessage(content=m["content"]))
+        input_user = st.text_input("IDENTITY TOKEN", label_visibility="collapsed", placeholder="ENTER NAME...")
+        
+        if st.button("INITIATE UPLINK", use_container_width=True):
+            if input_user:
+                with st.spinner("AUTHENTICATING BIOMETRICS..."):
+                    time.sleep(1.2)
+                    valid, name = verify_user(input_user)
+                    if valid:
+                        st.session_state.auth = True
+                        st.session_state.username = name
+                        # Welcome Message
+                        st.session_state.messages.append({"role": "assistant", "content": f"UPLINK ESTABLISHED. WELCOME, OPERATOR {name}. SYSTEM READY."})
+                        st.rerun()
                     else:
-                        messages.append(SystemMessage(content=m["content"]))
-                
-                # invoke model
-                response = llm.invoke(messages).content
+                        st.error("ACCESS DENIED: IDENTITY UNKNOWN")
+            else:
+                st.warning("INPUT REQUIRED")
 
-                # TYPEWRITER: display streaming into a temp container (inside assistant block)
-                placeholder = st.empty()
-                typewriter_streaming(response, placeholder, bubble_class="ai-bubble", speed=0.02, chunk=28)
-
-                # after streaming finishes, append final response to history (no duplication)
-                st.session_state.chat_history.append({"role": "ai", "content": response})
-                st.rerun()
-
-            except Exception as e:
-                st.error(f"Signal lost: {e}")
-
-    # Sidebar Logout
+# --- 6. MAIN TERMINAL INTERFACE ---
+else:
+    # --- SIDEBAR: CONTROLS & TELEMETRY ---
     with st.sidebar:
-        st.markdown("### SYSTEM")
-        if st.button("LOGOUT / LOCK"):
+        st.markdown(f"### OPR: {st.session_state.username}")
+        
+        # Telemetry Dashboard
+        st.markdown("""
+        <div class="stat-box">
+            <div class="stat-label">SYSTEM STATUS</div>
+            <div class="stat-val" style="color:#00f6ff;">ONLINE</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">AI MODEL</div>
+            <div class="stat-val">LLAMA-3 70B</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # 1. RAG SYSTEM (PDF UPLOAD)
+        st.caption("DATA INGESTION (RAG)")
+        uploaded_file = st.file_uploader("UPLOAD DOCUMENT", type=['pdf', 'txt'], label_visibility="collapsed")
+        if uploaded_file:
+            if uploaded_file.type == "application/pdf":
+                st.session_state.doc_context = extract_pdf_text(uploaded_file)
+            else:
+                st.session_state.doc_context = str(uploaded_file.read(), "utf-8")
+            st.success(f"DATA LOADED: {len(st.session_state.doc_context)} BYTES")
+        
+        st.markdown("---")
+        
+        # 2. PARAMETERS
+        st.caption("NEURAL SETTINGS")
+        temp_val = st.slider("CREATIVITY", 0.0, 1.0, 0.4)
+        
+        # 3. ACTIONS
+        st.markdown("---")
+        if st.button("GENERATE REPORT (PDF)"):
+            pdf_data = generate_pdf_report(st.session_state.messages, st.session_state.username)
+            st.download_button("DOWNLOAD FILE", pdf_data, "IEA_LOG.pdf", "application/pdf")
+            
+        if st.button("TERMINATE SESSION"):
             st.session_state.auth = False
-            st.session_state.chat_history = []
+            st.session_state.messages = []
             st.rerun()
+
+    # --- MAIN AREA: TABS ---
+    tab_chat, tab_visual = st.tabs(["[ TERMINAL_FEED ]", "[ VISUAL_CORE ]"])
+
+    # --- TAB 1: CHAT ---
+    with tab_chat:
+        # Container Chat History
+        chat_box = st.container()
+        
+        with chat_box:
+            for msg in st.session_state.messages:
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
+                    # Tampilkan Audio Player jika ini pesan terakhir AI
+                    if msg == st.session_state.messages[-1] and msg["role"] == "assistant":
+                         # Kita tidak auto-generate audio agar tidak lag, tapi bisa ditambahkan tombol play
+                         pass 
+
+        # Input Area
+        if prompt := st.chat_input("ENTER COMMAND / INQUIRY..."):
+            # 1. User Message
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            # 2. AI Processing
+            with st.chat_message("assistant"):
+                resp_box = st.empty()
+                full_response = ""
+                
+                # Context Management (RAG)
+                rag_instruction = ""
+                if st.session_state.doc_context:
+                    rag_instruction = f"REFERENCE DATA (PRIORITY): {st.session_state.doc_context[:5000]}..."
+
+                # System Prompt: Strict & Intelligent
+                sys_prompt = f"""
+                SYSTEM IDENTITY: IEA OMNI-AI.
+                OPERATOR: {st.session_state.username}.
+                LANGUAGE: INDONESIAN (Scientific/Formal).
+                
+                DIRECTIVES:
+                1. STRICTLY NO EMOJIS. TEXT ONLY.
+                2. FORMAT: Use clear paragraphs, bullet points, or numbered lists.
+                3. DIAGRAMS: If explanation is complex, generate GRAPHVIZ DOT code inside ```graphviz ... ``` block.
+                4. {rag_instruction}
+                """
+
+                messages_payload = [SystemMessage(content=sys_prompt)]
+                # Context Window: 8 Pesan Terakhir
+                for m in st.session_state.messages[-8:]:
+                    if m["role"] == "user": messages_payload.append(HumanMessage(content=m["content"]))
+                    else: messages_payload.append(AIMessage(content=m["content"]))
+
+                try:
+                    # Init LLM
+                    llm = ChatGroq(temperature=temp_val, groq_api_key=GROQ_API_KEY, model_name="llama-3.3-70b-versatile", streaming=True)
+                    chunks = llm.stream(messages_payload)
+                    
+                    # Streaming Output
+                    for chunk in chunks:
+                        if chunk.content:
+                            full_response += chunk.content
+                            resp_box.markdown(full_response + "█") # Cursor Effect
+                    
+                    # Final Render
+                    resp_box.markdown(full_response)
+                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                    
+                    # Post-Processing: Diagram Detection
+                    if "```graphviz" in full_response:
+                        # Extract DOT code
+                        try:
+                            code = full_response.split("```graphviz")[1].split("```")[0].strip()
+                            st.session_state.last_graph = code
+                            st.toast("VISUAL DATA GENERATED - CHECK 'VISUAL_CORE' TAB", icon="✅")
+                        except:
+                            pass
+
+                    # Post-Processing: Audio Generation (Auto-Briefing)
+                    # Generate audio singkat untuk 200 karakter pertama agar cepat
+                    audio_bytes = generate_audio(full_response)
+                    if audio_bytes:
+                        st.audio(audio_bytes, format='audio/mp3', start_time=0)
+
+                except Exception as e:
+                    st.error(f"SYSTEM FAILURE: {str(e)}")
+
+    # --- TAB 2: VISUALIZATION ---
+    with tab_visual:
+        st.markdown("### DATA VISUALIZATION MODULE")
+        if st.session_state.last_graph:
+            try:
+                st.graphviz_chart(st.session_state.last_graph)
+                st.caption(f"GENERATED AT: {datetime.datetime.now().strftime('%H:%M:%S')}")
+            except Exception as e:
+                st.error("VISUAL RENDERING ERROR")
+                st.code(st.session_state.last_graph)
+        else:
+            st.info("NO VISUAL DATA IN BUFFER. REQUEST A DIAGRAM TO GENERATE.")
+            st.markdown("Example: *'Buatkan diagram struktur tata surya'* or *'Gambarkan alur proses fotosintesis'*")
