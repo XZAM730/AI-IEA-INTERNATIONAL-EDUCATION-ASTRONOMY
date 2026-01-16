@@ -1,21 +1,10 @@
-# --- CORE FRAMEWORK ---
-streamlit>=1.36.0          # Framework UI utama (Versi stabil terbaru untuk Chat Interface)
-watchdog>=4.0.1            # Agar auto-reload berjalan mulus saat coding
-
-# --- AI & LLM ORCHESTRATION (THE BRAIN) ---
-langchain>=0.2.6           # Framework utama logika AI
-langchain-core>=0.2.10     # Inti skema pesan (SystemMessage, HumanMessage)
-langchain-community>=0.2.6 # Integrasi tambahan komunitas
-langchain-groq>=0.1.6      # Konektor resmi super-cepat untuk Groq (Llama-3)
-
-# --- DOCUMENT PROCESSING (RAG SYSTEM) ---
-PyPDF2>=3.0.1              # Engine pembaca PDF paling ringan dan akurat untuk teks
-fpdf>=1.7.2                # Engine pembuat laporan PDF (Export Chat)
-
-# --- MULTIMEDIA & VISUALIZATION ---
-graphviz>=0.20.3           # Renderer diagram visual (Graphviz)
-gTTS>=2.5.1                # Google Text-to-Speech (Suara AI Natural)
-
-# --- UTILITIES & SECURITY ---
-requests>=2.32.3           # Standar HTTP request yang aman
-python-dotenv>=1.0.1       # Pengelola API Key agar tidak bocor (Best Practice)
+streamlit
+requests
+langchain
+langchain-core
+langchain-groq
+langchain-community
+graphviz
+gTTS
+fpdf
+PyPDF2
