@@ -10,398 +10,287 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 # ==========================================
-# 1. PAGE CONFIGURATION (SYSTEM LEVEL)
+# 1. PAGE CONFIGURATION
 # ==========================================
 st.set_page_config(
-    page_title="IEA INTELLIGENCE PRO",
+    page_title="IEA INTELLIGENCE",
     page_icon="💠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ==========================================
-# 2. ADVANCED CSS INJECTION (DARK THEME ENGINE)
+# 2. ADVANCED CSS (DARK NEON THEME)
 # ==========================================
 st.markdown("""
     <style>
-    /* --- IMPORT PREMIUM FONTS --- */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@700&display=swap');
 
-    /* --- GLOBAL DARK THEME RESET --- */
-    :root {
-        --bg-color: #0E0E0E;        /* Hitam Pekat Premium */
-        --sidebar-bg: #151515;      /* Abu Sangat Gelap */
-        --text-color: #ECECEC;      /* Putih Tulang (Nyaman di mata) */
-        --accent-color: #00D2FF;    /* Neon Cyan IEA */
-        --input-bg: #1E1E1E;
-        --border-color: #333333;
-    }
-
-    /* Force Background & Text Color */
+    /* --- GLOBAL THEME --- */
     .stApp {
-        background-color: var(--bg-color);
-        color: var(--text-color);
+        background-color: #050505;
+        color: #E0E0E0;
         font-family: 'Inter', sans-serif;
     }
 
-    /* --- LOADING SCREEN ANIMATION (FUTURISTIC) --- */
-    @keyframes fadeOutLoader {
-        0% { opacity: 1; z-index: 999999; }
-        80% { opacity: 1; }
-        100% { opacity: 0; z-index: -1; visibility: hidden; }
-    }
-    @keyframes scanline {
-        0% { transform: translateY(-100%); }
-        100% { transform: translateY(100%); }
-    }
-    
+    /* --- LOADING ANIMATION --- */
+    @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
     #boot-screen {
-        position: fixed; inset: 0; 
-        background-color: #000;
-        display: flex; flex-direction: column;
-        align-items: center; justify-content: center;
-        z-index: 999999;
-        animation: fadeOutLoader 3s forwards ease-in-out;
+        position: fixed; inset: 0; z-index: 999999;
+        background: #000; display: flex; align-items: center; justify-content: center;
+        flex-direction: column; animation: fadeOut 2.5s forwards 1s;
     }
-    .boot-text {
-        font-family: 'JetBrains Mono', monospace;
-        color: var(--accent-color);
-        font-size: 1.5rem; letter-spacing: 4px; font-weight: bold;
-        text-shadow: 0 0 15px var(--accent-color);
-        margin-bottom: 20px;
+    .boot-logo {
+        font-family: 'Orbitron', sans-serif; font-size: 2rem;
+        background: linear-gradient(90deg, #00C6FF, #0072FF);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 30px rgba(0, 198, 255, 0.5);
     }
-    .loader-bar {
-        width: 200px; height: 2px; background: #333;
-        position: relative; overflow: hidden;
-    }
-    .loader-bar::after {
-        content: ''; position: absolute; top: 0; left: 0;
-        width: 50%; height: 100%; background: var(--accent-color);
-        animation: scanline 1s infinite linear alternate; /* Animasi geser */
-        transform: translateX(-100%);
-        animation: loadingBar 1.5s infinite;
-    }
-    @keyframes loadingBar { 0% {left: -50%;} 100% {left: 100%;} }
 
-    /* --- HIDE DEFAULT STREAMLIT BLOAT --- */
-    #MainMenu, footer, header, [data-testid="stDecoration"] { visibility: hidden; height: 0; display: none; }
-    
-    /* --- SIDEBAR CUSTOMIZATION --- */
-    [data-testid="stSidebar"] {
-        background-color: var(--sidebar-bg);
-        border-right: 1px solid var(--border-color);
+    /* --- HEADER GRADIENT --- */
+    .gradient-text {
+        font-family: 'Orbitron', sans-serif;
+        background: linear-gradient(to right, #00F6FF, #0072FF);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        font-weight: 800;
+        letter-spacing: 2px;
+        margin-bottom: 10px;
     }
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label {
-        color: #FFFFFF !important; /* Paksa teks sidebar putih */
+
+    /* --- CHAT BUBBLES --- */
+    /* User Bubble (Dark Grey) */
+    [data-testid="stChatMessage"]:nth-child(odd) {
+        background-color: transparent;
     }
-    
-    /* --- CHAT BUBBLES (DARK MODE) --- */
-    .stChatMessage {
-        background-color: transparent !important;
-        border: none !important;
-        padding: 1rem 0 !important;
+    /* AI Bubble (Transparent/Black) */
+    [data-testid="stChatMessage"]:nth-child(even) {
+        background-color: #0A0A0A;
+        border: 1px solid #1A1A1A;
+        border-radius: 12px;
     }
-    
-    /* User Avatar */
+
+    /* --- AVATARS --- */
     [data-testid="stChatMessageAvatarUser"] {
-        background-color: #333 !important;
-        color: #fff !important;
-        border-radius: 50%;
-        border: 1px solid #555;
+        background-color: #222 !important; color: #FFF !important;
     }
-    
-    /* AI Avatar (IEA Glowing Icon) */
     [data-testid="stChatMessageAvatarAssistant"] {
-        background-color: rgba(0, 210, 255, 0.1) !important;
-        color: var(--accent-color) !important;
-        border: 1px solid var(--accent-color);
-        box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
-        border-radius: 50%;
+        background: linear-gradient(135deg, #00F6FF, #0072FF) !important;
+        color: #000 !important;
+        box-shadow: 0 0 15px rgba(0, 246, 255, 0.3);
     }
 
-    /* --- TEXT VISIBILITY FIXER --- */
-    /* Ini penting! Memaksa semua teks markdown menjadi terang */
-    div.stMarkdown, div.stMarkdown p, div.stMarkdown li, div.stMarkdown h1, div.stMarkdown h2, div.stMarkdown h3 {
-        color: #E0E0E0 !important;
-    }
-    
-    /* Code Block Styling (Dark) */
-    code {
-        color: #FF79C6 !important;
-        background-color: #282A36 !important;
-        border: 1px solid #444;
-        font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* --- INPUT FIELDS (DARK) --- */
-    .stTextInput input, .stTextArea textarea, .stChatInput textarea {
-        background-color: var(--input-bg) !important;
-        color: #FFFFFF !important; /* Teks input putih */
-        border: 1px solid var(--border-color) !important;
+    /* --- INPUT FIELD --- */
+    .stTextInput input, .stChatInput textarea {
+        background-color: #111 !important;
+        color: #FFF !important;
+        border: 1px solid #333 !important;
         border-radius: 12px !important;
     }
     .stChatInput textarea:focus {
-        border-color: var(--accent-color) !important;
-        box-shadow: 0 0 0 1px var(--accent-color) !important;
+        border-color: #00F6FF !important;
+        box-shadow: 0 0 10px rgba(0, 246, 255, 0.1) !important;
     }
 
-    /* --- BUTTONS --- */
-    .stButton button {
-        background-color: #252525;
-        color: #FFF;
-        border: 1px solid #444;
-        transition: all 0.3s;
+    /* --- SUGGESTION CHIPS (TOMBOL CEPAT) --- */
+    .suggestion-btn {
+        border: 1px solid #333;
+        background: #111;
+        color: #AAA;
+        border-radius: 20px;
+        padding: 5px 15px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: 0.3s;
+        margin: 5px;
+        display: inline-block;
     }
-    .stButton button:hover {
-        background-color: var(--accent-color);
-        color: #000;
-        border-color: var(--accent-color);
-        box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
+    .suggestion-btn:hover {
+        border-color: #00F6FF;
+        color: #00F6FF;
     }
 
-    /* --- UPLOADER --- */
-    [data-testid="stFileUploader"] {
-        background-color: #1A1A1A;
-        padding: 15px; border-radius: 10px;
-        border: 1px dashed #444;
-    }
-    [data-testid="stFileUploader"] small { color: #888; }
-    </style>
+    /* --- HIDE BLOAT --- */
+    #MainMenu, footer, header { visibility: hidden; }
     
+    /* --- AUDIO PLAYER STYLE --- */
+    audio { width: 100%; height: 30px; filter: invert(1); opacity: 0.7; }
+    </style>
+
     <div id="boot-screen">
-        <div class="boot-text">IEA INTELLIGENCE</div>
-        <div class="loader-bar"></div>
-        <div style="margin-top:10px; color:#555; font-family:'JetBrains Mono'; font-size:0.8rem;">SYSTEM INITIALIZING...</div>
+        <div class="boot-logo">IEA INTELLIGENCE</div>
+        <div style="color:#555; margin-top:10px; font-family:'JetBrains Mono'">SYSTEM ONLINE</div>
     </div>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. BACKEND CORE (ENGINE LOGIC)
+# 3. BACKEND LOGIC
 # ==========================================
 
 @st.cache_data(show_spinner=False)
-def process_document(uploaded_file):
-    """Membaca PDF dengan senyap."""
+def process_pdf(file):
     try:
-        pdf_reader = PdfReader(uploaded_file)
-        text_data = ""
-        for page in pdf_reader.pages:
-            text_data += page.extract_text() or ""
-        return text_data
-    except Exception as e:
-        return f"Error reading file: {e}"
+        pdf = PdfReader(file)
+        return "".join([p.extract_text() for p in pdf.pages])
+    except: return ""
 
-def generate_pdf_report(chat_history):
-    """Engine pembuat laporan PDF Hitam Putih (Professional)."""
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=10)
-    
-    # Header
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "IEA RESEARCH SESSION LOG", ln=1, align='C')
-    pdf.ln(10)
-    
-    for msg in chat_history:
-        role = "AI SYSTEM" if msg['role'] == "assistant" else "USER"
-        # Sanitasi teks agar kompatibel dengan FPDF
-        content = msg['content'].encode('latin-1', 'replace').decode('latin-1')
-        
-        pdf.set_font("Arial", 'B', 9)
-        pdf.set_text_color(100, 100, 100) # Abu-abu untuk Role
-        pdf.cell(0, 6, f"[{role}]", ln=1)
-        
-        pdf.set_font("Arial", '', 10)
-        pdf.set_text_color(0, 0, 0) # Hitam untuk isi (di kertas putih)
-        pdf.multi_cell(0, 5, content)
-        pdf.ln(4)
-        
-    return pdf.output(dest='S').encode('latin-1')
-
-def generate_voice_stream(text):
-    """Engine Suara: Bersih dari kode."""
+def generate_voice(text):
     try:
-        # Hapus blok kode dan markdown agar suara enak didengar
-        clean_text = re.sub(r'```.*?```', 'Berikut adalah kode atau diagramnya.', text, flags=re.DOTALL)
-        clean_text = re.sub(r'[*_`#]', '', clean_text) 
-        
-        # Batasi panjang karakter untuk TTS (Free tier limit prevention)
-        if len(clean_text) > 600: clean_text = clean_text[:600] + "..."
-        
-        if not clean_text.strip(): return None
-
-        tts = gTTS(text=clean_text, lang='id', slow=False)
+        clean = re.sub(r'[*_`#]', '', text)
+        clean = re.sub(r'```.*?```', 'Visual ditampilkan.', clean, flags=re.DOTALL)
+        if len(clean) > 500: clean = clean[:500]
+        tts = gTTS(text=clean, lang='id', slow=False)
         fp = BytesIO()
         tts.write_to_fp(fp)
         return fp
-    except:
-        return None
+    except: return None
 
 # ==========================================
-# 4. SESSION STATE MANAGEMENT
+# 4. SESSION STATE
 # ==========================================
 if "messages" not in st.session_state:
-    # Pesan awal yang ramah namun profesional
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Sistem Online. IEA Intelligence siap membantu riset Anda. \n\nSilakan upload dokumen PDF untuk analisis konteks, atau ajukan pertanyaan ilmiah secara langsung."}
-    ]
-if "document_context" not in st.session_state:
-    st.session_state.document_context = ""
+    st.session_state.messages = [] # Mulai kosong agar bersih
+if "doc_context" not in st.session_state:
+    st.session_state.doc_context = ""
 
 # ==========================================
-# 5. SIDEBAR CONTROLS (DARK MODE)
+# 5. SIDEBAR
 # ==========================================
 with st.sidebar:
-    st.title("🎛️ CONTROL PANEL")
-    st.caption("IEA Neural Interface V.5.0 (Dark)")
-    st.divider()
-
-    # 5.1 SECURE API KEY INPUT
-    # Mencari di secrets dulu, kalau tidak ada baru minta input
+    st.markdown("### 🎛️ CONTROL PANEL")
+    
     api_key = st.secrets.get("GROQ_API_KEY")
     if not api_key:
-        api_key = st.text_input("🔑 Groq API Key", type="password", help="Masukkan API Key Groq Anda di sini")
-        if not api_key:
-            st.warning("Menunggu Kunci Akses...")
-            st.stop()
-    
-    # 5.2 DOCUMENT UPLOADER
-    st.subheader("📄 INPUT DATA RISET")
-    uploaded_file = st.file_uploader("Upload PDF (Maks 200MB)", type=["pdf"])
-    
-    if uploaded_file:
-        with st.spinner("Mengenkripsi & Menganalisis Data..."):
-            extracted_text = process_document(uploaded_file)
-            st.session_state.document_context = extracted_text
-            st.success(f"✅ Memori Terisi: {len(extracted_text)} karakter")
-    
-    if st.session_state.document_context:
-        if st.button("🗑️ Hapus Memori Dokumen"):
-            st.session_state.document_context = ""
-            st.rerun()
-
+        api_key = st.text_input("🔑 API Key", type="password")
+        if not api_key: st.stop()
+        
     st.divider()
     
-    # 5.3 UTILITIES
-    col1, col2 = st.columns(2)
-    with col1:
-        # Slider Kreativitas
-        creativity = st.slider("Kreativitas AI", 0.0, 1.0, 0.6)
-    with col2:
-        # Reset Button
-        if st.button("🔄 Reset Chat"):
-            st.session_state.messages = []
+    uploaded_file = st.file_uploader("📂 Upload PDF Riset", type=["pdf"])
+    if uploaded_file:
+        with st.spinner("Processing..."):
+            st.session_state.doc_context = process_pdf(uploaded_file)
+            st.success("Data Terbaca")
+            
+    if st.session_state.doc_context:
+        if st.button("🗑️ Hapus Memori"):
+            st.session_state.doc_context = ""
             st.rerun()
             
-    # Export Chat to PDF
-    if len(st.session_state.messages) > 1:
-        pdf_data = generate_pdf_report(st.session_state.messages)
-        st.download_button("📥 Export Log (PDF)", pdf_data, "IEA_Session_Log.pdf", "application/pdf", use_container_width=True)
+    st.markdown("---")
+    if st.button("🔄 Reset Percakapan"):
+        st.session_state.messages = []
+        st.rerun()
 
 # ==========================================
-# 6. MAIN CHAT AREA (THE BRAIN)
+# 6. MAIN UI
 # ==========================================
 
-# Judul Halaman Minimalis (Teks Putih/Abu)
-st.markdown("<h3 style='text-align: center; color: #555; margin-bottom: 30px; font-family:Orbitron; letter-spacing:2px;'>IEA INTELLIGENCE HUB</h3>", unsafe_allow_html=True)
+# 6.1 HEADER DENGAN GRADIENT
+st.markdown("<h1 class='gradient-text'>IEA INTELLIGENCE HUB</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#666; font-size:0.9rem; margin-top:-15px;'>Advanced Neural Interface V.5.0</p>", unsafe_allow_html=True)
+st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
 
-# 6.1 RENDER CHAT HISTORY
-for msg in st.session_state.messages:
-    # Tentukan Ikon Avatar
-    avatar_icon = "👤" if msg["role"] == "user" else "💠"
+# 6.2 WELCOME SCREEN & SUGGESTION CHIPS (Jika Chat Masih Kosong)
+if not st.session_state.messages:
+    st.markdown("""
+    <div style="text-align: center; padding: 20px; border: 1px dashed #333; border-radius: 10px; margin-bottom: 20px; background: #0A0A0A;">
+        <h3 style="color: #EEE;">Selamat Datang, Peneliti.</h3>
+        <p style="color: #888;">Saya siap membantu analisis data, pembuatan diagram, atau diskusi ilmiah.</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    with st.chat_message(msg["role"], avatar=avatar_icon):
+    # Tombol Cepat (Suggestion Chips)
+    col1, col2, col3, col4 = st.columns(4)
+    if col1.button("📊 Buat Diagram"):
+        st.session_state.messages.append({"role": "user", "content": "Buatkan diagram alur struktur organisasi penelitian."})
+        st.rerun()
+    if col2.button("📝 Ringkas PDF"):
+        if st.session_state.doc_context:
+            st.session_state.messages.append({"role": "user", "content": "Ringkas dokumen PDF yang sudah diupload."})
+        else:
+            st.toast("Upload PDF dulu di sidebar!", icon="⚠️")
+        st.rerun()
+    if col3.button("🌌 Teori NFT"):
+        st.session_state.messages.append({"role": "user", "content": "Jelaskan Node-Field Theory secara ilmiah."})
+        st.rerun()
+    if col4.button("🧪 Analisis Data"):
+        st.session_state.messages.append({"role": "user", "content": "Bagaimana cara menganalisis data voxel?"})
+        st.rerun()
+
+# 6.3 RENDER HISTORY
+for msg in st.session_state.messages:
+    icon = "👤" if msg["role"] == "user" else "💠"
+    with st.chat_message(msg["role"], avatar=icon):
         st.markdown(msg["content"])
-        
-        # Smart Feature: Auto-Render Diagram jika ada di history lama
         if "```graphviz" in msg["content"]:
             try:
-                # Regex untuk mengambil kode di dalam blok graphviz
-                graph_code = re.search(r'```graphviz\n(.*?)\n```', msg["content"], re.DOTALL).group(1)
-                st.graphviz_chart(graph_code)
+                code = re.search(r'```graphviz\n(.*?)\n```', msg["content"], re.DOTALL).group(1)
+                st.graphviz_chart(code)
             except: pass
 
-# 6.2 CHAT INPUT & PROCESSING
-if prompt := st.chat_input("Masukkan perintah atau pertanyaan..."):
-    
-    # Simpan & Tampilkan Pesan User
+# 6.4 INPUT & LOGIC
+if prompt := st.chat_input("Perintahkan sistem..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
 
-    # AI Response Logic
     with st.chat_message("assistant", avatar="💠"):
-        response_placeholder = st.empty()
-        full_response = ""
+        resp_placeholder = st.empty()
+        full_res = ""
         
-        # Membangun Konteks (RAG)
-        context_block = ""
-        if st.session_state.document_context:
-            context_block = f"\n[SUMBER DATA PDF]:\n{st.session_state.document_context[:10000]}...\n"
+        # Context
+        ctx = ""
+        if st.session_state.doc_context:
+            ctx = f"\n[SUMBER PDF]:\n{st.session_state.doc_context[:8000]}...\n"
 
-        # SYSTEM PROMPT (ULTIMATE INSTRUCTION)
-        system_instruction = f"""
-        Anda adalah IEA Intelligence, Asisten Riset Ilmiah Tingkat Lanjut.
-        Karakteristik: Objektif, Analitis, Profesional, namun mudah dipahami.
-        Bahasa: Indonesia Formal (EYD) yang baik.
-
-        INSTRUKSI KHUSUS:
-        1. Jawablah dengan struktur yang rapi (Gunakan Bullet Points atau Numbered Lists untuk keterbacaan).
-        2. Jika pengguna meminta DIAGRAM, ALUR, STRUKTUR, atau PETA KONSEP, Anda WAJIB menyertakan blok kode Graphviz.
-           Contoh Format Graphviz:
+        # Prompt Engineering
+        sys = f"""
+        Anda adalah IEA Intelligence. 
+        Peran: Asisten Riset Ilmiah (Professional & Concise).
+        Bahasa: Indonesia Formal.
+        
+        INSTRUKSI:
+        1. Jawab terstruktur (Poin-poin).
+        2. Untuk Diagram/Alur -> Gunakan Graphviz:
            ```graphviz
            digraph G {{
-             rankdir=LR;
-             node [style=filled, fillcolor="#1E1E1E", fontcolor="white", color="#00D2FF", shape=box, fontname="Arial"];
+             rankdir=LR; node [style=filled, fillcolor="#0A0A0A", fontcolor="#00F6FF", color="#00F6FF", shape=box];
              edge [color="#555"];
-             "Mulai" -> "Proses A" -> "Selesai";
+             "A" -> "B";
            }}
            ```
-        3. Gunakan informasi dari [SUMBER DATA PDF] jika relevan dengan pertanyaan user.
-        4. Hindari penggunaan emoji yang berlebihan (keep it professional).
-        {context_block}
+        3. Gunakan data PDF jika ada.
+        {ctx}
         """
 
-        messages_payload = [SystemMessage(content=system_instruction)]
-        # Memori Jangka Pendek (Mengingat 8 percakapan terakhir)
+        msgs = [SystemMessage(content=sys)]
         for m in st.session_state.messages[-8:]:
-            if m["role"] == "user": messages_payload.append(HumanMessage(content=m["content"]))
-            else: messages_payload.append(AIMessage(content=m["content"]))
+            if m["role"]=="user": msgs.append(HumanMessage(content=m["content"]))
+            else: msgs.append(AIMessage(content=m["content"]))
 
         try:
-            # Inisialisasi Model LLM (Groq)
-            llm = ChatGroq(
-                temperature=creativity,
-                groq_api_key=api_key,
-                model_name="llama-3.3-70b-versatile", # Model Llama 3 terbaik saat ini
-                streaming=True
-            )
-            
-            # Streaming Generation (Efek Mengetik)
-            chunks = llm.stream(messages_payload)
-            for chunk in chunks:
+            llm = ChatGroq(temperature=0.6, groq_api_key=api_key, model_name="llama-3.3-70b-versatile", streaming=True)
+            for chunk in llm.stream(msgs):
                 if chunk.content:
-                    full_response += chunk.content
-                    # Menambahkan kursor "▌" untuk efek real-time
-                    response_placeholder.markdown(full_response + "▌")
+                    full_res += chunk.content
+                    resp_placeholder.markdown(full_res + "▌")
             
-            # Final Render (Hapus kursor)
-            response_placeholder.markdown(full_response)
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            resp_placeholder.markdown(full_res)
+            st.session_state.messages.append({"role": "assistant", "content": full_res})
             
-            # POST-PROCESSING: AUTO DIAGRAM
-            if "```graphviz" in full_response:
+            # Auto Graphviz
+            if "```graphviz" in full_res:
                 try:
-                    code_block = re.search(r'```graphviz\n(.*?)\n```', full_response, re.DOTALL).group(1)
-                    st.graphviz_chart(code_block)
-                except Exception as e:
-                    st.error(f"Gagal Merender Visual: {e}")
-
-            # POST-PROCESSING: AUTO VOICE
-            # Membuat ikon audio kecil di bawah respons
-            audio_bytes = generate_voice_stream(full_response)
-            if audio_bytes:
-                st.audio(audio_bytes, format="audio/mp3")
+                    code = re.search(r'```graphviz\n(.*?)\n```', full_res, re.DOTALL).group(1)
+                    st.graphviz_chart(code)
+                except: pass
+            
+            # Auto Audio (Stylized)
+            sound = generate_voice(full_res)
+            if sound:
+                st.audio(sound, format="audio/mp3")
 
         except Exception as e:
-            st.error(f"Koneksi Terputus: {str(e)}")
+            st.error(f"System Error: {e}")
