@@ -1,10 +1,7 @@
 streamlit
+google-generativeai
+python-dotenv
+Pillow
 requests
-langchain
-langchain-core
-langchain-groq
-langchain-community
-graphviz
 gTTS
-fpdf
 PyPDF2
