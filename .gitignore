@@ -1,1 +1,16 @@
 
+# Abaikan folder cache Python
+__pycache__/
+*.pyc
+
+# Abaikan file rahasia & environment
+.env
+.venv/
+env/
+
+# Abaikan file sistem
+.DS_Store
+
+# Abaikan folder sisa Streamlit/Devcontainer lama
+.streamlit/
+.devcontainer/
