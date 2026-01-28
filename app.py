@@ -11,7 +11,7 @@ import PyPDF2
 import time
 
 # ==========================================
-# 1. KONFIGURASI SISTEM
+# 1. KONFIGURASI SISTEM (PAGE CONFIG)
 # ==========================================
 st.set_page_config(
     page_title="IEA INTELLIGENCE",
@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. ANTARMUKA VISUAL (HD & GLASSMORPHISM)
+# 2. ANTARMUKA VISUAL (HD & ANTI-NYANGKUT)
 # ==========================================
 st.markdown("""
     <style>
@@ -34,15 +34,23 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
 
-    /* --- LOADING SCREEN (Cincin Berputar) --- */
+    /* --- LOADER FIX (CSS ANIMATION FAILSAFE) --- */
+    /* Loader ini otomatis hilang dalam 3 detik lewat CSS, jadi GAK BAKAL NYANGKUT */
+    @keyframes autoFadeOut {
+        0% { opacity: 1; }
+        80% { opacity: 1; }
+        100% { opacity: 0; visibility: hidden; }
+    }
+
     #loader {
         position: fixed; inset: 0; z-index: 999999;
         background-color: #0a0a0f;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
-        transition: opacity 0.8s ease-out;
+        /* Animasi Failsafe: Hilang sendiri dalam 2.5 detik */
+        animation: autoFadeOut 2.5s forwards;
+        pointer-events: none; /* Agar bisa diklik tembus walau visual masih ada */
     }
-    .loader-hide { opacity: 0; pointer-events: none; }
     
     .ring { fill: none; stroke-width: 3; vector-effect: non-scaling-stroke; }
     .ring-1 { stroke: #a855f7; transform-origin: center; animation: ringSpin 2s linear infinite; }
@@ -58,7 +66,7 @@ st.markdown("""
 
     /* --- SIDEBAR KACA --- */
     [data-testid="stSidebar"] {
-        background-color: rgba(15, 15, 20, 0.85);
+        background-color: rgba(15, 15, 20, 0.9);
         backdrop-filter: blur(20px);
         border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
@@ -68,38 +76,30 @@ st.markdown("""
         text-align: center; padding: 30px 0 10px 0;
         border-bottom: 1px solid rgba(168, 85, 247, 0.1);
         margin-bottom: 40px;
-        animation: fadeInDown 1s ease;
     }
     .iea-title {
-        font-family: 'Orbitron'; font-size: 3.5rem; font-weight: 900;
+        font-family: 'Orbitron'; font-size: 3rem; font-weight: 900;
         background: linear-gradient(135deg, #a855f7 20%, #f97316 80%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         text-shadow: 0 0 40px rgba(168, 85, 247, 0.3);
-        letter-spacing: -2px;
+        letter-spacing: -1px;
     }
-    @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
 
     /* --- CHAT BUBBLES --- */
     [data-testid="stChatMessage"] {
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.05);
         border-radius: 16px;
         padding: 20px;
-        transition: transform 0.2s;
-    }
-    [data-testid="stChatMessage"]:hover {
-        background: rgba(255, 255, 255, 0.04);
     }
     
     /* Avatar User (Oranye) */
     [data-testid="stChatMessageAvatarUser"] {
         background: linear-gradient(135deg, #f97316, #ea580c) !important;
-        box-shadow: 0 0 15px rgba(249, 115, 22, 0.4);
     }
     /* Avatar AI (Ungu) */
     [data-testid="stChatMessageAvatarAssistant"] {
         background: linear-gradient(135deg, #a855f7, #7c3aed) !important;
-        box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
     }
 
     /* --- TOMBOL & INPUT --- */
@@ -111,18 +111,13 @@ st.markdown("""
     }
     .stButton>button:hover {
         box-shadow: 0 5px 20px rgba(168, 85, 247, 0.4);
-        transform: translateY(-2px);
     }
     
     .stTextInput input, .stChatInput textarea {
-        background-color: rgba(0,0,0,0.4) !important;
+        background-color: rgba(0,0,0,0.5) !important;
         border: 1px solid rgba(255,255,255,0.1) !important;
         color: #fff !important;
         border-radius: 12px !important;
-    }
-    .stChatInput textarea:focus {
-        border-color: #a855f7 !important;
-        box-shadow: 0 0 15px rgba(168, 85, 247, 0.2) !important;
     }
 
     /* --- HIDE DEFAULT ELEMENTS --- */
@@ -130,27 +125,19 @@ st.markdown("""
     </style>
 
     <div id="loader">
-        <div style="width: 120px; height: 120px;">
+        <div style="width: 100px; height: 100px;">
             <svg viewBox="0 0 200 200" style="width:100%; height:100%;">
                 <ellipse class="ring ring-1" cx="100" cy="100" rx="90" ry="30" />
                 <ellipse class="ring ring-2" cx="100" cy="100" rx="90" ry="30" />
                 <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-family="Orbitron" font-weight="900" font-size="40">AI</text>
             </svg>
         </div>
-        <div class="loader-text">MEMUAT NEURAL SYSTEM...</div>
+        <div class="loader-text">MENGHUBUNGKAN NEURAL...</div>
     </div>
-
-    <script>
-        setTimeout(function() {
-            const loader = document.getElementById('loader');
-            loader.classList.add('loader-hide');
-            setTimeout(() => { loader.style.display = 'none'; }, 1000);
-        }, 2000);
-    </script>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. OTAK SISTEM (BACKEND)
+# 3. OTAK SISTEM (BACKEND LOGIC)
 # ==========================================
 
 # Inisialisasi Google GenAI Client (Versi Baru)
@@ -183,11 +170,11 @@ with st.sidebar:
     st.markdown("<h3 style='font-family:Orbitron; color:#a855f7; text-align:center;'>PUSAT KONTROL</h3>", unsafe_allow_html=True)
     
     # 1. Navigasi Cepat
-    st.link_button("🚀 KEMBALI KE PORTAL IEA", "https://xzam730.github.io/PORTAL-IEA/", type="primary", use_container_width=True)
+    st.link_button("🏠 KEMBALI KE PORTAL", "https://xzam730.github.io/PORTAL-IEA/", type="primary", use_container_width=True)
     st.divider()
 
     # 2. Input Data Multimodal
-    st.markdown("**📂 Input Data Penelitan**")
+    st.markdown("**📂 Input Data Penelitian**")
     
     # Upload Gambar (Mata AI)
     img_file = st.file_uploader("Upload Foto Langit/Objek", type=["jpg", "png", "jpeg"], help="AI akan menganalisis objek astronomi di foto ini.")
@@ -207,7 +194,7 @@ with st.sidebar:
 
     # 4. Reset
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🔴 RESET MEMORI SISTEM", use_container_width=True):
+    if st.button("🗑️ RESET MEMORI", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
@@ -219,7 +206,7 @@ with st.sidebar:
 st.markdown("""
 <div class='iea-header'>
     <div class='iea-title'>IEA INTELLIGENCE</div>
-    <div style='color:#888; letter-spacing:2px; font-size:0.9rem; margin-top:10px; font-family:Orbitron;'>
+    <div style='color:#888; letter-spacing:2px; font-size:0.8rem; margin-top:10px; font-family:Orbitron;'>
         ADVANCED ASTRONOMY & DATA ASSISTANT
     </div>
 </div>
@@ -247,16 +234,18 @@ for msg in st.session_state.messages:
 if csv_file:
     try:
         df = pd.read_csv(csv_file)
-        with st.expander("📊 HASIL ANALISIS LABORATORIUM DATA", expanded=True):
+        with st.expander("📊 LABORATORIUM DATA (AUTO-ANALYSIS)", expanded=True):
             st.dataframe(df.head(), use_container_width=True)
             
             # Auto Plotting (Cerdas)
             numeric_cols = df.select_dtypes(include=['float', 'int']).columns
             if len(numeric_cols) >= 2:
-                fig = px.line(df, x=numeric_cols[0], y=numeric_cols[1], title=f"Visualisasi Data: {numeric_cols[0]} vs {numeric_cols[1]}")
+                fig = px.line(df, x=numeric_cols[0], y=numeric_cols[1], title=f"Visualisasi: {numeric_cols[0]} vs {numeric_cols[1]}")
                 fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="white")
                 st.plotly_chart(fig, use_container_width=True)
                 st.caption("✅ Grafik dihasilkan otomatis oleh Neural Data Engine.")
+            else:
+                st.caption("ℹ️ Data numerik tidak cukup untuk membuat grafik otomatis.")
     except Exception as e:
         st.error(f"Gagal memproses data: {e}")
 
@@ -293,7 +282,8 @@ if prompt := st.chat_input("Masukkan perintah penelitian..."):
                 if pdf_file:
                     pdf_text = read_pdf(pdf_file)
                     contents.append(f"REFERENSI DOKUMEN: {pdf_text[:4000]}...")
-                    st.toast("📄 Dokumen PDF sedang dibaca...")
+                    # Feedback visual kecil
+                    st.toast("📄 Menggunakan referensi dokumen...")
 
                 # Masukkan Gambar
                 if img_file:
