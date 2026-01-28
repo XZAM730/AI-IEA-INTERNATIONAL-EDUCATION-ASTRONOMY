@@ -1,312 +1,125 @@
-import streamlit as st
+import flet as ft
+import os
 from google import genai
-from google.genai import types
-import pandas as pd
-import plotly.express as px
-from PIL import Image
-import requests
-from io import BytesIO
-from gtts import gTTS
-import PyPDF2
-import time
 
-# ==========================================
-# 1. KONFIGURASI SISTEM (PAGE CONFIG)
-# ==========================================
-st.set_page_config(
-    page_title="IEA INTELLIGENCE",
-    page_icon="🌌",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-# ==========================================
-# 2. ANTARMUKA VISUAL (HD & ANTI-NYANGKUT)
-# ==========================================
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400&display=swap');
-
-    /* --- TEMA DASAR --- */
-    .stApp {
-        background-color: #0a0a0f;
-        color: #e0e0e0;
-        font-family: 'Inter', sans-serif;
+def main(page: ft.Page):
+    # --- 1. KONFIGURASI TAMPILAN (VISUAL HD) ---
+    page.title = "IEA INTELLIGENCE"
+    page.theme_mode = ft.ThemeMode.DARK
+    page.bgcolor = "#050505" # Hitam pekat
+    page.padding = 0
+    page.fonts = {
+        "Orbitron": "https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap"
     }
 
-    /* --- LOADER FIX (CSS ANIMATION FAILSAFE) --- */
-    /* Loader ini otomatis hilang dalam 3 detik lewat CSS, jadi GAK BAKAL NYANGKUT */
-    @keyframes autoFadeOut {
-        0% { opacity: 1; }
-        80% { opacity: 1; }
-        100% { opacity: 0; visibility: hidden; }
-    }
+    # --- 2. SETUP OTAK AI (GEMINI) ---
+    # Mengambil API Key dari Environment Variable (Aman)
+    api_key = os.getenv("GOOGLE_API_KEY")
+    client = genai.Client(api_key=api_key) if api_key else None
 
-    #loader {
-        position: fixed; inset: 0; z-index: 999999;
-        background-color: #0a0a0f;
-        display: flex; flex-direction: column;
-        align-items: center; justify-content: center;
-        /* Animasi Failsafe: Hilang sendiri dalam 2.5 detik */
-        animation: autoFadeOut 2.5s forwards;
-        pointer-events: none; /* Agar bisa diklik tembus walau visual masih ada */
-    }
-    
-    .ring { fill: none; stroke-width: 3; vector-effect: non-scaling-stroke; }
-    .ring-1 { stroke: #a855f7; transform-origin: center; animation: ringSpin 2s linear infinite; }
-    .ring-2 { stroke: #f97316; transform-origin: center; animation: ringSpinRev 3s linear infinite; }
-    @keyframes ringSpin { 100% { transform: rotate(360deg); } }
-    @keyframes ringSpinRev { 100% { transform: rotate(-360deg); } }
-    
-    .loader-text {
-        font-family: 'Orbitron'; color: #a855f7; margin-top: 25px;
-        letter-spacing: 4px; font-size: 0.8rem; animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse { 50% { opacity: 0.4; } }
+    # --- 3. KOMPONEN CHAT ---
+    chat_list = ft.ListView(
+        expand=True,
+        spacing=15,
+        padding=20,
+        auto_scroll=True
+    )
 
-    /* --- SIDEBAR KACA --- */
-    [data-testid="stSidebar"] {
-        background-color: rgba(15, 15, 20, 0.9);
-        backdrop-filter: blur(20px);
-        border-right: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    
-    /* --- HEADER MEWAH --- */
-    .iea-header {
-        text-align: center; padding: 30px 0 10px 0;
-        border-bottom: 1px solid rgba(168, 85, 247, 0.1);
-        margin-bottom: 40px;
-    }
-    .iea-title {
-        font-family: 'Orbitron'; font-size: 3rem; font-weight: 900;
-        background: linear-gradient(135deg, #a855f7 20%, #f97316 80%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        text-shadow: 0 0 40px rgba(168, 85, 247, 0.3);
-        letter-spacing: -1px;
-    }
-
-    /* --- CHAT BUBBLES --- */
-    [data-testid="stChatMessage"] {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 16px;
-        padding: 20px;
-    }
-    
-    /* Avatar User (Oranye) */
-    [data-testid="stChatMessageAvatarUser"] {
-        background: linear-gradient(135deg, #f97316, #ea580c) !important;
-    }
-    /* Avatar AI (Ungu) */
-    [data-testid="stChatMessageAvatarAssistant"] {
-        background: linear-gradient(135deg, #a855f7, #7c3aed) !important;
-    }
-
-    /* --- TOMBOL & INPUT --- */
-    .stButton>button {
-        background: linear-gradient(90deg, #a855f7, #7c3aed);
-        color: white; border: none; font-weight: 600;
-        border-radius: 8px; padding: 0.5rem 1rem;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        box-shadow: 0 5px 20px rgba(168, 85, 247, 0.4);
-    }
-    
-    .stTextInput input, .stChatInput textarea {
-        background-color: rgba(0,0,0,0.5) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        color: #fff !important;
-        border-radius: 12px !important;
-    }
-
-    /* --- HIDE DEFAULT ELEMENTS --- */
-    #MainMenu, footer, header { visibility: hidden; }
-    </style>
-
-    <div id="loader">
-        <div style="width: 100px; height: 100px;">
-            <svg viewBox="0 0 200 200" style="width:100%; height:100%;">
-                <ellipse class="ring ring-1" cx="100" cy="100" rx="90" ry="30" />
-                <ellipse class="ring ring-2" cx="100" cy="100" rx="90" ry="30" />
-                <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-family="Orbitron" font-weight="900" font-size="40">AI</text>
-            </svg>
-        </div>
-        <div class="loader-text">MENGHUBUNGKAN NEURAL...</div>
-    </div>
-""", unsafe_allow_html=True)
-
-# ==========================================
-# 3. OTAK SISTEM (BACKEND LOGIC)
-# ==========================================
-
-# Inisialisasi Google GenAI Client (Versi Baru)
-def init_ai():
-    api_key = st.secrets.get("GOOGLE_API_KEY")
-    if not api_key: return None
-    return genai.Client(api_key=api_key)
-
-# Pembaca PDF
-def read_pdf(file):
-    text = ""
-    try:
-        pdf = PyPDF2.PdfReader(file)
-        for page in pdf.pages: text += page.extract_text()
-    except: return "Gagal membaca dokumen enkripsi."
-    return text
-
-# NASA Data Fetcher
-@st.cache_data(ttl=3600)
-def get_nasa_daily():
-    try:
-        url = "https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY"
-        return requests.get(url).json()
-    except: return None
-
-# ==========================================
-# 4. SIDEBAR (PANEL KONTROL)
-# ==========================================
-with st.sidebar:
-    st.markdown("<h3 style='font-family:Orbitron; color:#a855f7; text-align:center;'>PUSAT KONTROL</h3>", unsafe_allow_html=True)
-    
-    # 1. Navigasi Cepat
-    st.link_button("🏠 KEMBALI KE PORTAL", "https://xzam730.github.io/PORTAL-IEA/", type="primary", use_container_width=True)
-    st.divider()
-
-    # 2. Input Data Multimodal
-    st.markdown("**📂 Input Data Penelitian**")
-    
-    # Upload Gambar (Mata AI)
-    img_file = st.file_uploader("Upload Foto Langit/Objek", type=["jpg", "png", "jpeg"], help="AI akan menganalisis objek astronomi di foto ini.")
-    
-    # Upload Dokumen (Otak Baca)
-    pdf_file = st.file_uploader("Upload Jurnal/Dokumen", type=["pdf"], help="AI akan membaca isi dokumen untuk referensi.")
-    
-    # Upload Data (Data Lab)
-    csv_file = st.file_uploader("Upload Data CSV (Grafik)", type=["csv"], help="AI akan membuat visualisasi data otomatis.")
-
-    st.divider()
-
-    # 3. Widget NASA (Live Feed)
-    nasa = get_nasa_daily()
-    if nasa and "url" in nasa:
-        st.image(nasa['url'], caption=f"NASA Daily: {nasa.get('title','Space')}")
-
-    # 4. Reset
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🗑️ RESET MEMORI", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
-
-# ==========================================
-# 5. HALAMAN UTAMA (CHAT & TOOLS)
-# ==========================================
-
-# Header Keren
-st.markdown("""
-<div class='iea-header'>
-    <div class='iea-title'>IEA INTELLIGENCE</div>
-    <div style='color:#888; letter-spacing:2px; font-size:0.8rem; margin-top:10px; font-family:Orbitron;'>
-        ADVANCED ASTRONOMY & DATA ASSISTANT
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# Cek Kunci Akses
-client = init_ai()
-if not client:
-    st.error("⚠️ AKSES DITOLAK: Kunci API Google tidak ditemukan di System Secrets.")
-    st.info("Harap masukkan GOOGLE_API_KEY di pengaturan Streamlit.")
-    st.stop()
-
-# Inisialisasi Riwayat Chat
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Sistem Online. Halo Peneliti, saya siap membantu analisis data astronomi, visualisasi grafik, atau diskusi ilmiah hari ini."}
-    ]
-
-# Tampilkan Chat Sebelumnya
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-# --- BAGIAN LABORATORIUM DATA (AUTO CHART) ---
-if csv_file:
-    try:
-        df = pd.read_csv(csv_file)
-        with st.expander("📊 LABORATORIUM DATA (AUTO-ANALYSIS)", expanded=True):
-            st.dataframe(df.head(), use_container_width=True)
-            
-            # Auto Plotting (Cerdas)
-            numeric_cols = df.select_dtypes(include=['float', 'int']).columns
-            if len(numeric_cols) >= 2:
-                fig = px.line(df, x=numeric_cols[0], y=numeric_cols[1], title=f"Visualisasi: {numeric_cols[0]} vs {numeric_cols[1]}")
-                fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="white")
-                st.plotly_chart(fig, use_container_width=True)
-                st.caption("✅ Grafik dihasilkan otomatis oleh Neural Data Engine.")
-            else:
-                st.caption("ℹ️ Data numerik tidak cukup untuk membuat grafik otomatis.")
-    except Exception as e:
-        st.error(f"Gagal memproses data: {e}")
-
-# --- INPUT CHAT USER ---
-if prompt := st.chat_input("Masukkan perintah penelitian..."):
-    
-    # 1. Simpan Pesan User
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-        if img_file:
-            img = Image.open(img_file)
-            st.image(img, width=300, caption="[Lampiran Visual]")
-    
-    # 2. Proses AI
-    with st.chat_message("assistant"):
-        message_placeholder = st.empty()
+    # Fungsi untuk mengirim pesan
+    def send_message(e):
+        if not chat_input.value: return
         
-        with st.spinner("Menganalisis Database Semesta..."):
+        user_text = chat_input.value
+        chat_input.value = ""
+        chat_input.focus()
+        
+        # 3a. Munculkan Chat User (Warna Oranye)
+        chat_list.controls.append(
+            ft.Container(
+                content=ft.Text(user_text, color="white", size=15),
+                alignment=ft.alignment.center_right,
+                bgcolor="#f97316", # Orange IEA
+                padding=15,
+                border_radius=ft.border_radius.only(top_left=15, top_right=15, bottom_left=15),
+                animate_opacity=300,
+            )
+        )
+        page.update()
+
+        # 3b. Proses AI
+        if client:
             try:
-                # Kumpulkan Konteks
-                contents = []
-                
-                # Instruksi Kepribadian
-                sys_instruct = """
-                Kamu adalah IEA Intelligence, asisten riset astronomi tingkat lanjut.
-                Gaya Bicara: Formal, Ilmiah, namun mudah dipahami (Bahasa Indonesia).
-                Tugas: Menjawab pertanyaan sains, menganalisis gambar antariksa, dan membantu riset.
-                Format: Gunakan Markdown (Bold, List, Code Block) agar jawaban rapi.
-                """
-                contents.append(sys_instruct)
+                # Animasi "Thinking..."
+                loading = ft.Text("Menganalisis...", color="#666", italic=True, size=12)
+                chat_list.controls.append(loading)
+                page.update()
 
-                # Masukkan Konteks PDF
-                if pdf_file:
-                    pdf_text = read_pdf(pdf_file)
-                    contents.append(f"REFERENSI DOKUMEN: {pdf_text[:4000]}...")
-                    # Feedback visual kecil
-                    st.toast("📄 Menggunakan referensi dokumen...")
-
-                # Masukkan Gambar
-                if img_file:
-                    image_data = Image.open(img_file)
-                    contents.append(image_data)
-                    st.toast("👁️ Menganalisis visual...")
-
-                # Masukkan Prompt User
-                contents.append(prompt)
-
-                # Generate Jawaban (Model: Gemini 1.5 Flash)
+                # Panggil Gemini
                 response = client.models.generate_content(
-                    model="gemini-1.5-flash",
-                    contents=contents
+                    model="gemini-1.5-flash-latest",
+                    contents=[user_text]
                 )
                 
-                full_response = response.text
-                message_placeholder.markdown(full_response)
+                # Hapus loading, ganti jawaban AI (Warna Ungu Gelap)
+                chat_list.controls.remove(loading)
+                chat_list.controls.append(
+                    ft.Container(
+                        content=ft.Markdown(
+                            response.text, 
+                            extension_set=ft.MarkdownExtensionSet.GITHUB_WEB
+                        ),
+                        alignment=ft.alignment.center_left,
+                        bgcolor="#1a1a2e", # Deep Purple
+                        padding=15,
+                        border_radius=ft.border_radius.only(top_left=15, top_right=15, bottom_right=15),
+                        border=ft.border.all(1, "rgba(168, 85, 247, 0.3)"), # Border Ungu Tipis
+                    )
+                )
+            except Exception as ex:
+                chat_list.controls.append(ft.Text(f"Error: {str(ex)}", color="red"))
+        else:
+             chat_list.controls.append(ft.Text("⚠️ API Key belum dipasang di Settings!", color="red"))
 
-            except Exception as e:
-                err_msg = f"⚠️ GANGGUAN SINYAL: {str(e)}"
-                message_placeholder.error(err_msg)
-                full_response = err_msg
-        
-        # Simpan Balasan AI
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
+        page.update()
+
+    # --- 4. HEADER & INPUT ---
+    header = ft.Container(
+        content=ft.Row([
+            ft.Icon(ft.icons.AUTO_AWESOME, color="#a855f7"),
+            ft.Text("IEA INTELLIGENCE", font_family="Orbitron", size=20, weight="bold", color="white"),
+        ], alignment=ft.MainAxisAlignment.CENTER),
+        padding=20,
+        bgcolor="rgba(20, 20, 30, 0.9)", # Efek Kaca
+        border=ft.border.only(bottom=ft.border.BorderSide(1, "#333"))
+    )
+
+    chat_input = ft.TextField(
+        hint_text="Perintahkan sistem...",
+        hint_style=ft.TextStyle(color="#555"),
+        border_radius=25,
+        bgcolor="#111",
+        border_color="#333",
+        text_style=ft.TextStyle(color="white"),
+        expand=True,
+        on_submit=send_message
+    )
+
+    # --- 5. SUSUN HALAMAN ---
+    page.add(
+        header,
+        ft.Container(content=chat_list, expand=True, bgcolor="#050505"), # Area Chat
+        ft.Container(
+            content=ft.Row([
+                chat_input,
+                ft.IconButton(ft.icons.SEND_ROUNDED, icon_color="#a855f7", on_click=send_message)
+            ]),
+            padding=20,
+            bgcolor="#0a0a0f"
+        )
+    )
+
+# --- 6. PENTING UNTUK DOCKER/HUGGING FACE ---
+if __name__ == "__main__":
+    # Baca port dari sistem, default ke 7860
+    port = int(os.getenv("PORT", 7860))
+    ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=port, host="0.0.0.0")
