@@ -1,26 +1,6 @@
-# --- FRAMEWORK UTAMA ---
-streamlit>=1.40.0
-watchdog
-
-# --- OTAK AI (TERBARU) ---
-# Menggunakan SDK 'google-genai' terbaru, bukan 'google-generativeai' yang lama
-google-genai>=0.2.0
-
-# --- PENGOLAHAN GAMBAR (VISION) ---
-Pillow>=10.0.0
-
-# --- PENGOLAHAN DOKUMEN & DATA ---
-PyPDF2>=3.0.0
-pandas>=2.1.0
-numpy>=1.26.0
-
-# --- KONEKSI & API (NASA) ---
-requests>=2.31.0
-python-dotenv>=1.0.0
-
-# --- AUDIO & SUARA ---
-gTTS>=2.4.0
-
-# --- VISUALISASI DATA (OPSIONAL UTK GRAFIK MEWAH) ---
-plotly>=5.18.0
-altair>=5.0.0
+flet
+google-genai
+Pillow
+requests
+PyPDF2
+python-dotenv
