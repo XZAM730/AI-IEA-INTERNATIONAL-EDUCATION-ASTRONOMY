@@ -1,296 +1,275 @@
 import streamlit as st
-import re
-import time
-import base64
+import google.generativeai as genai
+from PIL import Image
+import requests
 from io import BytesIO
 from gtts import gTTS
-from fpdf import FPDF
-from PyPDF2 import PdfReader
-from langchain_groq import ChatGroq
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+import PyPDF2
+import time
 
 # ==========================================
-# 1. PAGE CONFIGURATION
+# 1. KONFIGURASI HALAMAN (WAJIB PALING ATAS)
 # ==========================================
 st.set_page_config(
     page_title="IEA INTELLIGENCE",
     page_icon="💠",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed" # Sidebar tertutup biar clean pas awal
 )
 
 # ==========================================
-# 2. ADVANCED CSS (DARK NEON THEME)
+# 2. INJECT CSS & LOADER (VISUAL HD)
 # ==========================================
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Orbitron:wght@500;700;900&display=swap');
 
     /* --- GLOBAL THEME --- */
     .stApp {
-        background-color: #050505;
-        color: #E0E0E0;
+        background-color: #0a0a0f;
+        color: #e0e0e0;
         font-family: 'Inter', sans-serif;
     }
 
-    /* --- LOADING ANIMATION --- */
-    @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
-    #boot-screen {
+    /* --- LOADING SCREEN (Sama Persis Portal) --- */
+    #loader {
         position: fixed; inset: 0; z-index: 999999;
-        background: #000; display: flex; align-items: center; justify-content: center;
-        flex-direction: column; animation: fadeOut 2.5s forwards 1s;
+        background-color: #0a0a0f;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        transition: opacity 1s ease-out;
     }
-    .boot-logo {
-        font-family: 'Orbitron', sans-serif; font-size: 2rem;
-        background: linear-gradient(90deg, #00C6FF, #0072FF);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        text-shadow: 0 0 30px rgba(0, 198, 255, 0.5);
+    .loader-hide { opacity: 0; pointer-events: none; }
+    
+    .ring { fill: none; stroke-width: 3; }
+    .ring-1 { stroke: #a855f7; transform-origin: center; animation: ringSpin 2s linear infinite; }
+    .ring-2 { stroke: #f97316; transform-origin: center; animation: ringSpinRev 3s linear infinite; }
+    @keyframes ringSpin { 100% { transform: rotate(360deg); } }
+    @keyframes ringSpinRev { 100% { transform: rotate(-360deg); } }
+    
+    .loader-text {
+        font-family: 'Orbitron'; color: #a855f7; margin-top: 20px;
+        letter-spacing: 3px; font-size: 0.9rem; animation: pulse 1s infinite;
     }
+    @keyframes pulse { 50% { opacity: 0.5; } }
 
-    /* --- HEADER GRADIENT --- */
-    .gradient-text {
-        font-family: 'Orbitron', sans-serif;
-        background: linear-gradient(to right, #00F6FF, #0072FF);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        font-weight: 800;
-        letter-spacing: 2px;
-        margin-bottom: 10px;
+    /* --- SIDEBAR GLASSMORPHISM --- */
+    [data-testid="stSidebar"] {
+        background-color: rgba(20, 20, 30, 0.85);
+        backdrop-filter: blur(15px);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    /* --- CUSTOM HEADER --- */
+    .iea-header {
+        text-align: center; padding: 20px 0;
+        border-bottom: 1px solid rgba(168, 85, 247, 0.2);
+        margin-bottom: 30px;
+    }
+    .iea-title {
+        font-family: 'Orbitron'; font-size: 3rem; font-weight: 900;
+        background: linear-gradient(to right, #a855f7, #f97316);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 30px rgba(168, 85, 247, 0.4);
     }
 
     /* --- CHAT BUBBLES --- */
-    /* User Bubble (Dark Grey) */
-    [data-testid="stChatMessage"]:nth-child(odd) {
-        background-color: transparent;
+    [data-testid="stChatMessage"] {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
-    /* AI Bubble (Transparent/Black) */
-    [data-testid="stChatMessage"]:nth-child(even) {
-        background-color: #0A0A0A;
-        border: 1px solid #1A1A1A;
-        border-radius: 12px;
-    }
+    [data-testid="stChatMessageAvatarUser"] { background-color: #f97316 !important; }
+    [data-testid="stChatMessageAvatarAssistant"] { background-color: #a855f7 !important; }
 
-    /* --- AVATARS --- */
-    [data-testid="stChatMessageAvatarUser"] {
-        background-color: #222 !important; color: #FFF !important;
-    }
-    [data-testid="stChatMessageAvatarAssistant"] {
-        background: linear-gradient(135deg, #00F6FF, #0072FF) !important;
-        color: #000 !important;
-        box-shadow: 0 0 15px rgba(0, 246, 255, 0.3);
-    }
-
-    /* --- INPUT FIELD --- */
+    /* --- HIDE DEFAULT ELEMENTS --- */
+    #MainMenu, footer, header { visibility: hidden; }
+    
+    /* --- INPUT BOX --- */
     .stTextInput input, .stChatInput textarea {
-        background-color: #111 !important;
-        color: #FFF !important;
-        border: 1px solid #333 !important;
+        background-color: rgba(0,0,0,0.3) !important;
+        border: 1px solid rgba(168, 85, 247, 0.3) !important;
+        color: white !important;
         border-radius: 12px !important;
     }
     .stChatInput textarea:focus {
-        border-color: #00F6FF !important;
-        box-shadow: 0 0 10px rgba(0, 246, 255, 0.1) !important;
+        border-color: #f97316 !important;
+        box-shadow: 0 0 15px rgba(249, 115, 22, 0.2) !important;
     }
-
-    /* --- SUGGESTION CHIPS (TOMBOL CEPAT) --- */
-    .suggestion-btn {
-        border: 1px solid #333;
-        background: #111;
-        color: #AAA;
-        border-radius: 20px;
-        padding: 5px 15px;
-        font-size: 0.8rem;
-        cursor: pointer;
-        transition: 0.3s;
-        margin: 5px;
-        display: inline-block;
-    }
-    .suggestion-btn:hover {
-        border-color: #00F6FF;
-        color: #00F6FF;
-    }
-
-    /* --- HIDE BLOAT --- */
-    #MainMenu, footer, header { visibility: hidden; }
-    
-    /* --- AUDIO PLAYER STYLE --- */
-    audio { width: 100%; height: 30px; filter: invert(1); opacity: 0.7; }
     </style>
 
-    <div id="boot-screen">
-        <div class="boot-logo">IEA INTELLIGENCE</div>
-        <div style="color:#555; margin-top:10px; font-family:'JetBrains Mono'">SYSTEM ONLINE</div>
+    <div id="loader">
+        <div style="width: 100px; height: 100px;">
+            <svg viewBox="0 0 200 200">
+                <ellipse class="ring ring-1" cx="100" cy="100" rx="90" ry="30" />
+                <ellipse class="ring ring-2" cx="100" cy="100" rx="90" ry="30" />
+                <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-family="Orbitron" font-weight="900" font-size="50">AI</text>
+            </svg>
+        </div>
+        <div class="loader-text">MENGHUBUNGKAN NEURAL NETWORK...</div>
     </div>
+
+    <script>
+        setTimeout(function() {
+            const loader = document.getElementById('loader');
+            loader.classList.add('loader-hide');
+            setTimeout(() => { loader.style.display = 'none'; }, 1000);
+        }, 2500); // Loader muncul selama 2.5 detik
+    </script>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. BACKEND LOGIC
+# 3. BACKEND LOGIC (The Brain)
 # ==========================================
 
-@st.cache_data(show_spinner=False)
-def process_pdf(file):
-    try:
-        pdf = PdfReader(file)
-        return "".join([p.extract_text() for p in pdf.pages])
-    except: return ""
+# Setup Gemini
+def init_gemini():
+    # Mengambil API Key dari Secrets (Aman)
+    api_key = st.secrets.get("GOOGLE_API_KEY")
+    if not api_key: return None
+    genai.configure(api_key=api_key)
+    return genai.GenerativeModel('gemini-1.5-flash')
 
-def generate_voice(text):
+# Fungsi Baca PDF
+def get_pdf_text(pdf_file):
+    text = ""
     try:
-        clean = re.sub(r'[*_`#]', '', text)
-        clean = re.sub(r'```.*?```', 'Visual ditampilkan.', clean, flags=re.DOTALL)
-        if len(clean) > 500: clean = clean[:500]
-        tts = gTTS(text=clean, lang='id', slow=False)
-        fp = BytesIO()
-        tts.write_to_fp(fp)
-        return fp
+        reader = PyPDF2.PdfReader(pdf_file)
+        for page in reader.pages: text += page.extract_text()
+    except: return "Gagal membaca PDF."
+    return text
+
+# Fungsi NASA
+@st.cache_data(ttl=3600)
+def get_nasa_apod():
+    try:
+        url = "https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY"
+        return requests.get(url).json()
     except: return None
 
 # ==========================================
-# 4. SESSION STATE
-# ==========================================
-if "messages" not in st.session_state:
-    st.session_state.messages = [] # Mulai kosong agar bersih
-if "doc_context" not in st.session_state:
-    st.session_state.doc_context = ""
-
-# ==========================================
-# 5. SIDEBAR
+# 4. SIDEBAR (CONTROL PANEL)
 # ==========================================
 with st.sidebar:
-    st.markdown("### 🎛️ CONTROL PANEL")
+    st.markdown("<h3 style='font-family:Orbitron; color:#a855f7;'>KONTROL SISTEM</h3>", unsafe_allow_html=True)
     
-    api_key = st.secrets.get("GROQ_API_KEY")
-    if not api_key:
-        api_key = st.text_input("🔑 API Key", type="password")
-        if not api_key: st.stop()
-        
+    # 1. Navigasi
+    st.link_button("🏠 KEMBALI KE PORTAL", "https://xzam730.github.io/PORTAL-IEA/", type="primary")
+    
     st.divider()
     
-    uploaded_file = st.file_uploader("📂 Upload PDF Riset", type=["pdf"])
-    if uploaded_file:
-        with st.spinner("Processing..."):
-            st.session_state.doc_context = process_pdf(uploaded_file)
-            st.success("Data Terbaca")
-            
-    if st.session_state.doc_context:
-        if st.button("🗑️ Hapus Memori"):
-            st.session_state.doc_context = ""
-            st.rerun()
-            
-    st.markdown("---")
-    if st.button("🔄 Reset Percakapan"):
+    # 2. Upload Tools
+    st.markdown("**📂 Input Data**")
+    uploaded_image = st.file_uploader("Upload Foto Bintang/Galaksi", type=["jpg", "png", "jpeg"])
+    uploaded_pdf = st.file_uploader("Upload Jurnal PDF", type=["pdf"])
+    
+    st.divider()
+
+    # 3. Fitur Utilitas (Kalkulator Mini)
+    st.markdown("**🧮 Kalkulator Astrofisika**")
+    calc_mode = st.selectbox("Pilih Alat:", ["Konversi Tahun Cahaya", "Berat di Mars"])
+    if calc_mode == "Konversi Tahun Cahaya":
+        ly = st.number_input("Tahun Cahaya (ly):", value=1.0)
+        km = ly * 9.461e12
+        st.code(f"{km:.2e} km")
+    else:
+        weight = st.number_input("Berat di Bumi (kg):", value=60)
+        mars_w = weight * 0.38
+        st.code(f"{mars_w:.2f} kg di Mars")
+
+    st.divider()
+    
+    # 4. Widget NASA
+    nasa = get_nasa_apod()
+    if nasa and "url" in nasa:
+        st.image(nasa['url'], caption="NASA Live Feed")
+    
+    # 5. Clear Chat
+    if st.button("🗑️ Reset Memori"):
         st.session_state.messages = []
         st.rerun()
 
 # ==========================================
-# 6. MAIN UI
+# 5. HALAMAN UTAMA (CHAT INTERFACE)
 # ==========================================
 
-# 6.1 HEADER DENGAN GRADIENT
-st.markdown("<h1 class='gradient-text'>IEA INTELLIGENCE HUB</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#666; font-size:0.9rem; margin-top:-15px;'>Advanced Neural Interface V.5.0</p>", unsafe_allow_html=True)
-st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+# Header Keren
+st.markdown("""
+<div class='iea-header'>
+    <div class='iea-title'>IEA INTELLIGENCE</div>
+    <div style='color:#888; letter-spacing:1px; margin-top:5px;'>ADVANCED ASTRONOMY ASSISTANT</div>
+</div>
+""", unsafe_allow_html=True)
 
-# 6.2 WELCOME SCREEN & SUGGESTION CHIPS (Jika Chat Masih Kosong)
-if not st.session_state.messages:
-    st.markdown("""
-    <div style="text-align: center; padding: 20px; border: 1px dashed #333; border-radius: 10px; margin-bottom: 20px; background: #0A0A0A;">
-        <h3 style="color: #EEE;">Selamat Datang, Peneliti.</h3>
-        <p style="color: #888;">Saya siap membantu analisis data, pembuatan diagram, atau diskusi ilmiah.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Tombol Cepat (Suggestion Chips)
-    col1, col2, col3, col4 = st.columns(4)
-    if col1.button("📊 Buat Diagram"):
-        st.session_state.messages.append({"role": "user", "content": "Buatkan diagram alur struktur organisasi penelitian."})
-        st.rerun()
-    if col2.button("📝 Ringkas PDF"):
-        if st.session_state.doc_context:
-            st.session_state.messages.append({"role": "user", "content": "Ringkas dokumen PDF yang sudah diupload."})
-        else:
-            st.toast("Upload PDF dulu di sidebar!", icon="⚠️")
-        st.rerun()
-    if col3.button("🌌 Teori NFT"):
-        st.session_state.messages.append({"role": "user", "content": "Jelaskan Node-Field Theory secara ilmiah."})
-        st.rerun()
-    if col4.button("🧪 Analisis Data"):
-        st.session_state.messages.append({"role": "user", "content": "Bagaimana cara menganalisis data voxel?"})
-        st.rerun()
+# Cek API Key
+model = init_gemini()
+if not model:
+    st.error("⚠️ SISTEM OFFLINE: Masukkan GOOGLE_API_KEY di Streamlit Secrets.")
+    st.stop()
 
-# 6.3 RENDER HISTORY
+# Session State History
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Halo Peneliti. Sistem IEA Intelligence siap. Ada yang bisa saya bantu analisis hari ini?"}
+    ]
+
+# Tampilkan Chat History
 for msg in st.session_state.messages:
-    icon = "👤" if msg["role"] == "user" else "💠"
-    with st.chat_message(msg["role"], avatar=icon):
+    with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        if "```graphviz" in msg["content"]:
-            try:
-                code = re.search(r'```graphviz\n(.*?)\n```', msg["content"], re.DOTALL).group(1)
-                st.graphviz_chart(code)
-            except: pass
 
-# 6.4 INPUT & LOGIC
+# INPUT CHAT USER
 if prompt := st.chat_input("Perintahkan sistem..."):
+    
+    # 1. Render User Message
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="👤"):
+    with st.chat_message("user"):
         st.markdown(prompt)
-
-    with st.chat_message("assistant", avatar="💠"):
-        resp_placeholder = st.empty()
-        full_res = ""
+        if uploaded_image:
+            img = Image.open(uploaded_image)
+            st.image(img, width=300, caption="Gambar dianalisis")
+    
+    # 2. Proses AI
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        full_response = ""
         
-        # Context
-        ctx = ""
-        if st.session_state.doc_context:
-            ctx = f"\n[SUMBER PDF]:\n{st.session_state.doc_context[:8000]}...\n"
-
-        # Prompt Engineering
-        sys = f"""
-        Anda adalah IEA Intelligence. 
-        Peran: Asisten Riset Ilmiah (Professional & Concise).
-        Bahasa: Indonesia Formal.
+        with st.spinner("Mengakses Database Neural..."):
+            try:
+                # Siapkan Konteks
+                context = ""
+                vision_input = []
+                
+                if uploaded_pdf:
+                    pdf_text = get_pdf_text(uploaded_pdf)
+                    context += f"\n[SUMBER PDF USER]:\n{pdf_text[:3000]}\n"
+                
+                system_instruction = f"""
+                Kamu adalah AI Resmi dari IEA (International Education Astronomy).
+                Gaya Bicara: Profesional, Ilmiah, tapi mudah dimengerti (Bahasa Indonesia).
+                Tugas: Menjawab pertanyaan astronomi, fisika, dan analisis data.
+                Konteks Tambahan: {context}
+                Jika user mengirim gambar, analisis objek astronomi tersebut secara detail.
+                """
+                
+                # Cek Input (Gambar atau Teks)
+                input_parts = [system_instruction, prompt]
+                if uploaded_image:
+                    img = Image.open(uploaded_image)
+                    input_parts.append(img)
+                
+                # Generate
+                response = model.generate_content(input_parts)
+                full_response = response.text
+                
+                # Efek Mengetik (Typing Effect)
+                # Kita tidak pakai stream biar format markdown rapi
+                message_placeholder.markdown(full_response)
+                
+            except Exception as e:
+                full_response = f"⚠️ Terjadi kesalahan koneksi: {str(e)}"
+                message_placeholder.error(full_response)
         
-        INSTRUKSI:
-        1. Jawab terstruktur (Poin-poin).
-        2. Untuk Diagram/Alur -> Gunakan Graphviz:
-           ```graphviz
-           digraph G {{
-             rankdir=LR; node [style=filled, fillcolor="#0A0A0A", fontcolor="#00F6FF", color="#00F6FF", shape=box];
-             edge [color="#555"];
-             "A" -> "B";
-           }}
-           ```
-        3. Gunakan data PDF jika ada.
-        {ctx}
-        """
-
-        msgs = [SystemMessage(content=sys)]
-        for m in st.session_state.messages[-8:]:
-            if m["role"]=="user": msgs.append(HumanMessage(content=m["content"]))
-            else: msgs.append(AIMessage(content=m["content"]))
-
-        try:
-            llm = ChatGroq(temperature=0.6, groq_api_key=api_key, model_name="llama-3.3-70b-versatile", streaming=True)
-            for chunk in llm.stream(msgs):
-                if chunk.content:
-                    full_res += chunk.content
-                    resp_placeholder.markdown(full_res + "▌")
-            
-            resp_placeholder.markdown(full_res)
-            st.session_state.messages.append({"role": "assistant", "content": full_res})
-            
-            # Auto Graphviz
-            if "```graphviz" in full_res:
-                try:
-                    code = re.search(r'```graphviz\n(.*?)\n```', full_res, re.DOTALL).group(1)
-                    st.graphviz_chart(code)
-                except: pass
-            
-            # Auto Audio (Stylized)
-            sound = generate_voice(full_res)
-            if sound:
-                st.audio(sound, format="audio/mp3")
-
-        except Exception as e:
-            st.error(f"System Error: {e}")
+        # Simpan Respons ke History
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
